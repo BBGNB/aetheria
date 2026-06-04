@@ -204,12 +204,12 @@ TT.f.T..T.T.....Tb....T..TT...pTTf....TT
 T.f.TT.TTTT....b...f.b..T...b.p.T.T.TT.T
 T....bf..bpppppppppppppppppppppTf..T..TT
 TT..Tf.T..pT.T..T....T..TTf...fT...T.f.T
-T.T.b..TT.p..f.T...b.b.T......TT.bT....T
+T.T.b..TT.p..f.T...b.b.T......TT..T....T
 T.....bT..p...TT...Tb...T..T..TT.T....TT
 TTTTfT.T.Tp.TT..TbT....TTTbT.fTT.TTf.T.T
 T...f.fT..p...T..b.b...T......T...T.TTbT
 T....TbTTTppppppppppp.T..T..ff.....f..TT
-TTTT.TTb..TT.T..T...pT.....T.T.TT.TTb..T
+TTTT.TTb..TT.T..T...pT.....T.T.TT.TT...T
 T..T..TT..T.T..T..T.p.T.T..TTT...b.T.T.T
 T.....Tb...b...T...Tp..T.TT..T.TT.T...TT
 TTT.T.TTT..Tf..fT...pTTf..T..Tb.T..T.T.T
@@ -557,6 +557,9 @@ export const MAPS = {
       { id: 'reach:cache6', tx: 33, ty: 27, kind: 'hidden', label: 'Splintered chest',
         lines: ['A small ironbound chest, splintered open by a falling branch.'],
         item: { kind: 'equipment', id: 'silverRing' } },
+      { id: 'reach:cache7', tx: 37, ty: 27, kind: 'hidden', label: 'Root-wrapped seed',
+        lines: ['A petrified seed wrapped in old roots, deep in a forgotten pocket of the Reach.', 'It hums faintly when touched.'],
+        item: { kind: 'gem', id: 'bloomroot' } },
     ],
     music: 'overworld',
     ambient: 'forest',
