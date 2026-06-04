@@ -1601,6 +1601,29 @@ export const ENEMIES = [
     attackStatus: { id: 'sleep', chance: 0.18 },
     draw: drawWraith,
   },
+  // Tier 3 variant — a wraith that drifted out of the Echoing Hollow and
+  // soaked up the Reach's corruption. Sour-green halo, deeper purple body,
+  // stronger sleep on hit. Used in Deep Reach encounters.
+  {
+    id: 'hollowWraith', name: 'Hollow Wraith', tier: 3, level: 9,
+    maxHp: 100, atk: 19, def: 4, mag: 18, spd: 9,
+    xp: 70, gold: 28,
+    drops: [
+      { kind: 'consumable', id: 'hipotion', chance: 0.22 },
+      { kind: 'consumable', id: 'ether', chance: 0.22 },
+      { kind: 'gem', id: 'voidshard', chance: 0.06 },
+      { kind: 'gem', id: 'sandmanBell', chance: 0.06 },
+      { kind: 'gem', id: 'lifebloom', chance: 0.04 },
+    ],
+    radius: 38,
+    color: '#5a1aaa',
+    palette: { body: '#5a1aaa', shade: '#1a0033', glow: 'rgba(170,255,140,', skull: '#cdffae', eye: '#c8e060' },
+    // Same elemental profile as the base wraith — the corruption didn't
+    // change WHAT it is, just made it stronger.
+    resist: ['phys'], weak: ['fire', 'holy'], immune: ['ice'],
+    attackStatus: { id: 'sleep', chance: 0.30 },
+    draw: drawWraith,
+  },
 ];
 
 export const ENEMY_BY_ID = Object.fromEntries(ENEMIES.map(e => [e.id, e]));

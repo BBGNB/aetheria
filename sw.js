@@ -1,6 +1,6 @@
 // Service worker — caches the game shell so it works offline after the
 // first load. Uses a versioned cache; bump CACHE to invalidate on update.
-const CACHE = 'aetheria-v4';
+const CACHE = 'aetheria-v5';
 const SHELL = [
   './',
   './index.html',
