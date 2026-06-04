@@ -4395,8 +4395,12 @@ export class Battle {
         skipReason = def;
       }
     }
-    // Decrement and prune
-    for (const s of actor.statuses) s.duration--;
+    // Decrement and prune — `persistent` statuses (sleep, poison) skip the
+    // decrement so they last until cured or end of battle (FF7-style).
+    for (const s of actor.statuses) {
+      const def = STATUS_BY_ID[s.id];
+      if (!def?.persistent) s.duration--;
+    }
     actor.statuses = actor.statuses.filter(s => s.duration > 0);
     return skipReason;
   }
@@ -5131,7 +5135,19 @@ export class Battle {
     // duplicate "falls!" / "KO'd!" log lines on summon overkill flurries.
     const wasDead = defender.dead || defender.hp <= 0;
     const pierce = skill?.pierce ?? 0;
-    let dmg = Math.max(1, base - defender.def * 0.5 * (1 - pierce));
+    // Apply `statMod` statuses (e.g. Cracked Armor) to the defender's stats
+    // BEFORE pierce reduces them further. So Sunder's 50% pierce stacks with
+    // Earthsplitter's -30% DEF debuff for boss-melting combos.
+    let effectiveDef = defender.def;
+    if (defender.statuses?.length) {
+      for (const s of defender.statuses) {
+        const sd = STATUS_BY_ID[s.id];
+        if (sd?.kind === 'statMod' && sd.stat === 'def') {
+          effectiveDef *= sd.factor;
+        }
+      }
+    }
+    let dmg = Math.max(1, base - effectiveDef * 0.5 * (1 - pierce));
     if (defender.defending) dmg *= 0.5;
     dmg *= elementMod;
     const crit = Math.random() < 0.08;
