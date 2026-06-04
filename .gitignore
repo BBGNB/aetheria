@@ -1,0 +1,12 @@
+# Local Claude config (not for sharing)
+.claude/
+
+# Node deps if ever added
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

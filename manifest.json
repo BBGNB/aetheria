@@ -1,0 +1,19 @@
+{
+  "name": "Aetheria",
+  "short_name": "Aetheria",
+  "description": "A turn-based JRPG of the Aetherial Order.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0a0e16",
+  "theme_color": "#0a0e16",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

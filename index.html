@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0e16" />
+<title>Aetheria</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<button id="muteBtn" class="mute">🔊</button>
+<button id="menuBtn" class="menuBtn hidden">☰</button>
+
+<div id="overworldMenu" class="ovMenu hidden">
+  <div class="ovMenuHeader">
+    <div class="ovTabs" id="ovTabs"></div>
+    <button id="ovMenuClose" class="ovClose">✕</button>
+  </div>
+  <div class="ovMenuBody" id="ovMenuBody"></div>
+</div>
+
+<div id="topHud" class="topHud hidden">
+  <div class="line">
+    <span id="goldEl">G 0</span>
+  </div>
+</div>
+
+<div id="objective" class="objective hidden"><span></span></div>
+
+<div id="dialog" class="dialog hidden">
+  <div class="dlgText" id="dialogText"></div>
+  <button id="dialogNext">▶</button>
+</div>
+
+<div id="battleUI" class="battleUI hidden">
+  <div id="battleTop" class="battleTop"></div>
+  <div id="battleLog" class="battleLog"></div>
+  <div id="battleActions" class="battleActions"></div>
+</div>
+
+<div id="startScreen" class="overlay">
+  <h1>AETHERIA</h1>
+  <p class="sub">A turn-based realm.</p>
+  <button id="continueBtn" class="hidden">Continue</button>
+  <button id="startBtn">New Game</button>
+</div>
+
+<div id="classPicker" class="overlay hidden">
+  <h2>Choose Your Path</h2>
+  <p class="sub">Each class has its own stat growth and skill tree.</p>
+  <div id="classCards" class="classCards"></div>
+  <button id="classBackBtn" class="ghostBtn">← Back</button>
+</div>
+
+<div id="gameOver" class="overlay hidden">
+  <h2>You have fallen</h2>
+  <button id="restartBtn">Try Again</button>
+</div>
+
+<script type="module" src="src/main.js"></script>
+<script>
+  // Register the PWA service worker so the game caches itself for offline
+  // play. Only runs once the page has loaded so the main game starts first.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
