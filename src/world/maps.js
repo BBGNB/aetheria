@@ -142,7 +142,7 @@ TTTTTTTTTTTTTTTpTTTTTTTTTTTTTT`;
 const DEEP_REACH_STR = `
 TTTTTTTTTTTTTTTTTTTTTTCTTTTTTTTTTTTTTTTT
 T.TT.T..TT.bbTb.TT.TT.pT.TTT.TT..TTTfTTT
-Tf.TTT.TTTTT.TbbTTbT..p...TT.T.b..T.TTbT
+Tf.TTT.TTTTT.TbbTTbT..p...TT.T....T.TTbT
 T...T.T.TTT.T.TT.TT...p....bT..TTT..TT.T
 T.TT...TTTT.T.b...b..fp.........T.b..TTT
 TTTT.TT.f.T...T.T.fT..p.....T.fTT..TTbbT
@@ -164,16 +164,16 @@ T.TT.T.TT.fTf...p.f.TT.TTTTT.bTTTTT.pTTT
 TT.TTT.T.T...T.fp.T.bTT..TTT..TTTTfTpTTT
 TT.TTfTTppppppppp.T..T..bTfbTTb....bpTbT
 T.bTT.TTpT.T.T.TT.f.bTTT.fT....b.....T.T
-TTT....fp.TbTfT.T...TTTfT....T.T.b.bTTfT
+TTT....fp.TbTfT.T...TTTfT....T.T.b..TTfT
 TTTppppppbTT..T.T..TbT....T.TT.TTTT...bT
 TT.p...bpTT...bT.b...TTT..TT.bb.T.bTT..T
 T.bp.T..pTT.TT....fb..fT...T..TTTT....TT
 TTTp.TT.pppppppppppppT..Tb.b..fTT..T...T
 TbTp.....T.T.T.TTb..pTT.T..b..T.T...T..T
 TT.p.b....T.fTTTbTT.p....TT..T...TT.TTTT
-T..T.T.T..bfbTT.bb..pTTT.TT.TT.b.bTb.TbT
-Tb.TT.TTbT..TT.bTf..pT..bTfT..TTTTT..T.T
-TT.TbT.TTT.f.TTTT...p..T.T.T...TT..TTTTT
+T..T.T.T..bfbTT.bb..pTTT.TT.TT.b.bT..TbT
+Tb.TT.TTbT..TT.bTf..pT..bTfT..TTTTT....T
+TT.TbT.TTT.f.TTTT...p..T.T.T...TT...TTTT
 TT.TT..T...T.TTTT...pTTTT.fT.T..Tff.TTTT
 TTTTTTTTTTTTTTTTTTTTpTTTTTTTTTTTTTTTTTTT`;
 
@@ -373,7 +373,7 @@ export const MAPS = {
           'I came for the source of the rift. I found only the wound itself, and a Warden between me and the way out.',
           'But the Hollow is the smallest tear. The true blade is elsewhere — at the places where my brothers and sisters fell. That is where Vael feeds.',
           'I cannot mend what is left of the song alone. I never could.',
-          'If you would walk that road with me, my staff is yours.',
+          'If you would walk that road with me, I will walk it at your side.',
         ] },
     ],
     doors: [
@@ -386,7 +386,7 @@ export const MAPS = {
         speaker: '',
         lines: [
           'The cave mouth blackens. Violet light folds in on itself — and out walks a thing of jagged shards and burning eyes.',
-          'Lyra steps in front of you, her staff catching the dark light. "It found us. Vael\'s hand reaches even here..."',
+          'Lyra steps in front of you, bracing for what is coming. "It found us. Vael\'s hand reaches even here..."',
           'The Warden\'s many eyes blaze open as one. "...broken... broken..." — its voice is not its own.',
           'Lyra: "Together. The song is not yet silent."',
           'You ready your weapons.',
@@ -395,31 +395,10 @@ export const MAPS = {
     // Lore breadcrumbs — Lyra's torn journal pages laid as a trail to her
     // chamber, plus a couple of caches left by her or her predecessors.
     searchables: [
-      { id: 'cave:journal1', tx: 16, ty: 11, kind: 'hidden', label: 'Torn page',
-        lines: [
-          'A page torn from a leather journal, pinned beneath a stone.',
-          '"Day 1 — I have descended. The Aether sings even here, but faint. Thin. Strained."',
-          '— Lyra',
-        ],
-        item: { kind: 'lore' } },
-      { id: 'cave:journal2', tx: 10, ty: 5,  kind: 'hidden', label: 'Torn page',
-        lines: [
-          'Another page, tucked between cave-floor cracks.',
-          '"Day 3 — Wraiths chased me deeper. I think they remember Vael\'s face. Or whatever wears it now."',
-          '— Lyra',
-        ],
-        item: { kind: 'lore' } },
       { id: 'cave:journal3', tx: 4,  ty: 12, kind: 'hidden', label: 'Torn page',
         lines: [
           'A water-warped page caught on a stalagmite.',
-          '"Day 6 — Something is here that is not beast and not memory. A Warden, the old texts called it. The Sundered places them at every leyline wound."',
-          '— Lyra',
-        ],
-        item: { kind: 'lore' } },
-      { id: 'cave:journal4', tx: 1,  ty: 3,  kind: 'hidden', label: 'Torn page',
-        lines: [
-          'The last page, fluttering by the entrance to a small chamber.',
-          '"Day 9 — If you read this and I am not here, leave. Tell Vorrin the Hollow is only a wound, not the blade. Mend what you can elsewhere. I am sorry."',
+          '"Day 6 — Something is here that is not beast and not memory. A Warden, the old texts called it. The Sundered places them at every leyline wound. If you read this and I am not here, leave — tell Vorrin the Hollow is only a wound, not the blade."',
           '— Lyra',
         ],
         item: { kind: 'lore' } },
@@ -501,7 +480,7 @@ export const MAPS = {
     // The corruption cutscene + ambient particles still hint at trouble.
     enterCutscene: {
       flag: 'reach:firstEntry',
-      speaker: 'Lyra',
+      speaker: '',
       visual: 'forest-corruption',
       delay: 1100,
       lines: [
@@ -511,8 +490,6 @@ export const MAPS = {
         'A path winds north into the dim. Move slowly. The Reach knows you are here.',
       ],
     },
-    // Sable's discarded research + a couple of caches. The journal pages tell
-    // the story of the Order's fall and what truly happened to Vael.
     searchables: [
       { id: 'reach:sable1', tx: 22, ty: 3, kind: 'hidden', label: 'Discarded notebook',
         lines: [
@@ -526,34 +503,12 @@ export const MAPS = {
           '"Vael did not reach for the song out of ambition. He reached for it because his wife was dying, and the song could mend her. The Order knew. We let him try. We are not innocent."',
         ],
         item: { kind: 'lore' } },
-      { id: 'reach:sable3', tx: 24, ty: 14, kind: 'hidden', label: 'Buried ledger',
-        lines: [
-          'A small ledger sealed in wax, recently disturbed.',
-          '"What returned from the tear was not Vael. It was the song itself, given a face. The Sundered is the wound learning to walk. It does not hate us. It does not know us."',
-        ],
-        item: { kind: 'lore' } },
-      { id: 'reach:sable4', tx: 13, ty: 22, kind: 'hidden', label: 'Pressed map',
-        lines: [
-          'A pressed-leaf map of the Verdant Reach, with the deep hollow marked.',
-          '"The knot at the heart of the Reach feeds on what grows. If it blooms once, the forest is gone. If it blooms twice, the kingdom is."',
-        ],
-        item: { kind: 'lore' } },
-      // Treasures
-      { id: 'reach:cache1', tx: 28, ty: 25, kind: 'hidden', label: 'Hollow log',
-        lines: ['Inside a hollow log, wrapped in old cloth — a knapped tool kit.'],
-        item: { kind: 'consumable', id: 'hipotion', qty: 2 } },
       { id: 'reach:cache2', tx: 30, ty: 19, kind: 'hidden', label: 'Sable\'s cairn',
         lines: ['Beneath a small stone cairn, something Sable meant to forget.'],
         item: { kind: 'gem', id: 'frostAspect' } },
-      { id: 'reach:cache3', tx: 5, ty: 6, kind: 'hidden', label: 'Twisted roots',
-        lines: ['A small purse, slipped from a traveler who never came back.'],
-        item: { kind: 'gold', amount: 180 } },
       { id: 'reach:cache4', tx: 36, ty: 8, kind: 'hidden', label: 'Birdsnest cache',
         lines: ['A magpie\'s hoard — shiny things gathered into a high cleft.'],
         item: { kind: 'gem', id: 'magpieCharm' } },
-      { id: 'reach:cache5', tx: 4, ty: 20, kind: 'hidden', label: 'Wax-sealed jar',
-        lines: ['A jar sealed with red wax. Whatever\'s inside still hums.'],
-        item: { kind: 'consumable', id: 'ether', qty: 3 } },
       { id: 'reach:cache6', tx: 33, ty: 27, kind: 'hidden', label: 'Splintered chest',
         lines: ['A small ironbound chest, splintered open by a falling branch.'],
         item: { kind: 'equipment', id: 'silverRing' } },
@@ -637,7 +592,6 @@ export const MAPS = {
       ],
     },
     searchables: [
-      // ---- Lore (3 — Vael's letters, Order's record) ----------------------
       { id: 'reachDeep:lore1', tx: 24, ty: 3, kind: 'hidden', label: 'Sealed letter',
         lines: [
           'A letter pinned to a tree with an iron nail, the seal long broken.',
@@ -645,57 +599,18 @@ export const MAPS = {
           '— Vael',
         ],
         item: { kind: 'lore' } },
-      { id: 'reachDeep:lore2', tx: 21, ty: 4, kind: 'hidden', label: 'Aether-burnt stone',
-        lines: [
-          'A flat stone, its surface scorched black with old aether-burn.',
-          '"The seven of us argued for three days. In the end, we did nothing — and Vael went alone. Whatever he became, we made it by waiting."',
-          '— Sable\'s journal, year of the tearing',
-        ],
-        item: { kind: 'lore' } },
-      { id: 'reachDeep:lore3', tx: 14, ty: 18, kind: 'hidden', label: 'Bone reliquary',
-        lines: [
-          'A small carved box of root-bone, set into the base of a stump.',
-          '"Vael\'s wife outlived him by eleven days. She begged us to stop searching for him. We did not listen. The thing that took his face cannot be saved — but neither can we — and we keep trying anyway."',
-          '— Sable',
-        ],
-        item: { kind: 'lore' } },
-      // ---- Gems (4) -------------------------------------------------------
       { id: 'reachDeep:gem1', tx: 25, ty: 5, kind: 'hidden', label: 'Vine-wrapped stone',
         lines: ['Hidden in a vine snarl — a humming green crystal.'],
         item: { kind: 'gem', id: 'lifebloom' } },
-      { id: 'reachDeep:gem2', tx: 13, ty: 10, kind: 'hidden', label: 'Wraith-keening',
-        lines: ['A pale frost-blue shard wedged between two trees that bend toward each other.'],
-        item: { kind: 'gem', id: 'frostAspect' } },
       { id: 'reachDeep:gem3', tx: 28, ty: 11, kind: 'hidden', label: 'Choirmoth chrysalis',
         lines: ['A broken chrysalis — left inside, a small bell of brittle horn.'],
         item: { kind: 'gem', id: 'sandmanBell' } },
-      { id: 'reachDeep:gem4', tx: 34, ty: 15, kind: 'hidden', label: 'Whisper-stone',
-        lines: ['Set into a high cleft of bark — a stone that hums when you touch it.'],
-        item: { kind: 'gem', id: 'stormPearl' } },
-      // ---- Equipment (2) --------------------------------------------------
-      { id: 'reachDeep:eq1', tx: 7, ty: 27, kind: 'hidden', label: 'Mossy reliquary',
-        lines: ['An old reliquary — inside, a band of woven silver and thornroot.'],
-        item: { kind: 'equipment', id: 'amulet' } },
       { id: 'reachDeep:eq2', tx: 36, ty: 16, kind: 'hidden', label: 'Sable\'s old kit',
         lines: ['A bundle Sable left here long ago — wrapped tight, still serviceable.'],
         item: { kind: 'equipment', id: 'flameBrand' } },
-      // ---- Consumables (4) ------------------------------------------------
       { id: 'reachDeep:con1', tx: 19, ty: 33, kind: 'hidden', label: 'Pathside cache',
         lines: ['A small leather pouch tucked under a rock at the edge of the path.'],
         item: { kind: 'consumable', id: 'hipotion', qty: 2 } },
-      { id: 'reachDeep:con2', tx: 17, ty: 34, kind: 'hidden', label: 'Forgotten pack',
-        lines: ['A traveler\'s pack — fallen from a shoulder long ago.'],
-        item: { kind: 'consumable', id: 'ether', qty: 2 } },
-      { id: 'reachDeep:con3', tx: 18, ty: 19, kind: 'hidden', label: 'Spore-blasted earth',
-        lines: ['Tucked beneath sporeswarmed loam — a phial still intact.'],
-        item: { kind: 'consumable', id: 'hipotion', qty: 3 } },
-      { id: 'reachDeep:con4', tx: 5, ty: 25, kind: 'hidden', label: 'Wraith-leavings',
-        lines: ['What a wraith dropped, last time it tried to pass through here.'],
-        item: { kind: 'consumable', id: 'ether', qty: 3 } },
-      // ---- Gold (2) -------------------------------------------------------
-      { id: 'reachDeep:gold1', tx: 4, ty: 26, kind: 'hidden', label: 'Bone cairn',
-        lines: ['A cairn of small bones, capped with a leather purse.'],
-        item: { kind: 'gold', amount: 240 } },
       { id: 'reachDeep:gold2', tx: 18, ty: 20, kind: 'hidden', label: 'Adventurer\'s remains',
         lines: ['What\'s left of someone who got this far and no further. They won\'t need it now.'],
         item: { kind: 'gold', amount: 320 } },
@@ -742,10 +657,10 @@ export const MAPS = {
           'You step into the meditation pavilion. Sable sits cross-legged on the rug, eyes closed, hands folded.',
           'Without opening his eyes: "You broke the Rotcrown. Good. The forest will not heal — but it will not die today, either."',
           '(Lyra steps forward.) "Sable. I am not the only one of us left."',
-          'Sable: "I know, little sister. I have known for a long time. I let you believe otherwise because I was a coward, and because you would have come for me, and I did not want to be found."',
-          'Sable: "But the Rotcrown is dead, and the next knot is widening. You cannot mend all six of them with one cleric and a stranger who wandered into your story."',
+          '"I know, little sister. I have known for a long time. I let you believe otherwise because I was a coward, and because you would have come for me, and I did not want to be found."',
+          '"But the Rotcrown is dead, and the next knot is widening. You cannot mend all six of them with what little you have brought me."',
           '(He opens his eyes. They are tired and very old.) "I will come. For Lyra. For the Order I helped fail. For what Vael was before he was anything else."',
-          'Sable: "Teach me where you are walking. I will burn the path open."',
+          '"Teach me where you are walking. I will burn the path open."',
         ] },
     ],
     doors: [
@@ -772,21 +687,6 @@ export const MAPS = {
       ],
     },
     searchables: [
-      // ---- Lore (3) -------------------------------------------------------
-      { id: 'sableHollow:lore1', tx: 4, ty: 4, kind: 'hidden', label: 'Order regalia',
-        lines: [
-          'A folded ceremonial robe, the Aetherial Order\'s sigil embroidered in faded thread.',
-          '"We were seven and we were proud and we believed we could hold the song. We were children with a knife that we did not know was sharper than us."',
-          '— Sable\'s margin notes',
-        ],
-        item: { kind: 'lore' } },
-      { id: 'sableHollow:lore2', tx: 4, ty: 9, kind: 'hidden', label: 'Stone tablet',
-        lines: [
-          'A weather-worn slab carved with the Order\'s founding charter.',
-          '"To steady. To never to silence. To hold the song in trust for those who come after — not to wield it as ours."',
-          'The last line has been struck through. Beneath it, Sable\'s hand has written: "We forgot the second one first."',
-        ],
-        item: { kind: 'lore' } },
       { id: 'sableHollow:lore3', tx: 25, ty: 8, kind: 'hidden', label: 'Vael\'s last letter',
         lines: [
           'A letter tucked under Sable\'s pillow. Sable\'s name on the front, in Vael\'s hand.',
@@ -794,27 +694,18 @@ export const MAPS = {
           'The letter has been read many times, and folded so many ways it is almost falling apart.',
         ],
         item: { kind: 'lore' } },
-      // ---- Gems (2) -------------------------------------------------------
       { id: 'sableHollow:gem1', tx: 8, ty: 10, kind: 'hidden', label: 'Cracked Order shard',
         lines: ['A violet shard, once part of a much larger working. It still hums faintly.'],
         item: { kind: 'gem', id: 'echoingSigil' } },
       { id: 'sableHollow:gem2', tx: 17, ty: 13, kind: 'hidden', label: 'Sealed prism',
         lines: ['A small prism wound in iron wire — one of Sable\'s own bindings.'],
         item: { kind: 'gem', id: 'mirroredSigil' } },
-      // ---- Equipment (2) --------------------------------------------------
       { id: 'sableHollow:eq1', tx: 6, ty: 19, kind: 'hidden', label: 'Worn staff',
         lines: ['Sable\'s old training staff, leaned against the garden wall. Still serviceable.'],
         item: { kind: 'equipment', id: 'soulforge' } },
-      { id: 'sableHollow:eq2', tx: 25, ty: 18, kind: 'hidden', label: 'Brass-bound chest',
-        lines: ['A chest banded in brass — inside, a robe of woven slategrey thread, smelling faintly of woodsmoke.'],
-        item: { kind: 'equipment', id: 'cinderRobe' } },
-      // ---- Consumables (2) ------------------------------------------------
       { id: 'sableHollow:con1', tx: 14, ty: 20, kind: 'hidden', label: 'Apothecary shelf',
         lines: ['A row of phials, neatly stoppered. Sable kept stocked even out here.'],
         item: { kind: 'consumable', id: 'hipotion', qty: 4 } },
-      { id: 'sableHollow:con2', tx: 23, ty: 22, kind: 'hidden', label: 'Ether cabinet',
-        lines: ['A small cabinet with the Order\'s sigil burned into the door.'],
-        item: { kind: 'consumable', id: 'ether', qty: 4 } },
     ],
     music: 'overworld',
     ambient: null,
@@ -876,13 +767,6 @@ export const MAPS = {
         ] },
     ],
     searchables: [
-      // ---- Lore (2) -------------------------------------------------------
-      { id: 'bloom:lore1', tx: 11, ty: 5, kind: 'hidden', label: 'Faded pillar',
-        lines: [
-          'Carved into a fallen pillar at the arena\'s edge.',
-          '"Where seven mages stood, the world was steady. Where six remain, the world chooses what to break first."',
-        ],
-        item: { kind: 'lore' } },
       { id: 'bloom:lore2', tx: 17, ty: 5, kind: 'hidden', label: 'Order sigil',
         lines: [
           'A weather-burned Order sigil set into the stone — under it, a list of seven names.',
@@ -890,21 +774,12 @@ export const MAPS = {
           'The seventh name is "Vael." It has not been scratched out.',
         ],
         item: { kind: 'lore' } },
-      // ---- Gems (2) -------------------------------------------------------
-      { id: 'bloom:gem1', tx: 9, ty: 8, kind: 'hidden', label: 'Knot-fragment',
-        lines: ['A splinter of crystallized leyline — humming, almost warm.'],
-        item: { kind: 'gem', id: 'echoingSigil' } },
       { id: 'bloom:gem2', tx: 19, ty: 8, kind: 'hidden', label: 'Vein of stone',
         lines: ['A vein of stone laced with cooled aether.'],
         item: { kind: 'gem', id: 'wardStone' } },
-      // ---- Equipment (1) --------------------------------------------------
       { id: 'bloom:eq1', tx: 22, ty: 17, kind: 'hidden', label: 'Pilgrim\'s pack',
         lines: ['An unopened pack left at the alcove\'s edge. Someone meant to outlive this place.'],
         item: { kind: 'equipment', id: 'amulet' } },
-      // ---- Consumables (2) ------------------------------------------------
-      { id: 'bloom:con1', tx: 5, ty: 16, kind: 'hidden', label: 'Brass jar',
-        lines: ['A sealed brass jar, half-buried in moss. Still cold.'],
-        item: { kind: 'consumable', id: 'hipotion', qty: 5 } },
       { id: 'bloom:con2', tx: 23, ty: 16, kind: 'hidden', label: 'Glass phials',
         lines: ['Three glass phials stoppered with old wax.'],
         item: { kind: 'consumable', id: 'ether', qty: 5 } },

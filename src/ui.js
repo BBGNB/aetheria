@@ -40,18 +40,23 @@ export class UI {
     // Also hide the overworld top HUD during battle — the battle UI has its
     // own per-member bars that would otherwise overlap with it.
     const inBattle = game.scene?.constructor?.name === 'Battle';
+    const encBtn = document.getElementById('encBtn');
     if (inBattle) {
       this.battleUI.classList.remove('hidden');
       this.hideHud();
       this._setObjective(null);
       game.menu?.hideButton?.();
       if (game.menu?.open) game.menu.close();
+      encBtn?.classList.add('hidden');
     } else {
       this.battleUI.classList.add('hidden');
       this.closeBattleMenu();
       this.showHud();
       this._setObjective(this._computeObjective(game));
-      if (game.running) game.menu?.showButton?.();
+      if (game.running) {
+        game.menu?.showButton?.();
+        encBtn?.classList.remove('hidden');
+      }
     }
   }
 

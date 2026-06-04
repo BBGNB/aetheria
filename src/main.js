@@ -113,6 +113,13 @@ document.getElementById('muteBtn').addEventListener('click', e => {
   e.currentTarget.textContent = audio.muted ? '🔇' : '🔊';
 });
 
+document.getElementById('encBtn').addEventListener('click', e => {
+  game.encountersDisabled = !game.encountersDisabled;
+  const btn = e.currentTarget;
+  btn.classList.toggle('off', game.encountersDisabled);
+  btn.textContent = game.encountersDisabled ? '🕊️' : '⚔️';
+});
+
 document.body.addEventListener('touchmove', e => {
   // Allow native scrolling inside designated scroll regions (menus, skill lists).
   if (e.target.closest && e.target.closest('.ovMenuBody, .skillList, .ovMenu')) return;

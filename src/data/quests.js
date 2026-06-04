@@ -38,8 +38,7 @@ export const QUESTS = [
       { text: 'Find Sable, the exile, in the forest clearing.',
         when: g => g.flags.has('sable:met') },
       { text: 'Recover Sable\'s lost research pages scattered through the Reach.',
-        when: g => ['reach:sable1','reach:sable2','reach:sable3','reach:sable4']
-          .every(id => g.searched.has(id)) },
+        when: g => ['reach:sable1','reach:sable2'].every(id => g.searched.has(id)) },
       { text: 'Press deeper — into the Reach\'s rotting heart.',
         when: g => g.flags.has('reachDeep:firstEntry') },
       { text: 'Break what has rooted at the heart of the Reach.',

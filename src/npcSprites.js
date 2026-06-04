@@ -7,6 +7,7 @@ export function drawNpc(ctx, npc, t, r) {
     case 'innkeeper':        drawEdran(ctx, t, r); break;
     case 'elder':            drawVorrin(ctx, t, r); break;
     case 'hermit:sable':     drawSable(ctx, t, r); break;
+    case 'recruit:sable':    drawSable(ctx, t, r); break;
     case 'tender:caretaker': drawCaretaker(ctx, t, r); break;
     default:                 drawGeneric(ctx, npc, t, r);
   }

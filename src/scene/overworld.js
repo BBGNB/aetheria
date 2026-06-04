@@ -6,6 +6,8 @@ import { drawHero } from '../heroSprites.js';
 import { drawNpc as drawNpcSprite } from '../npcSprites.js';
 import { Effects } from '../effects.js';
 import { createEnemyInstance } from '../data/enemies.js';
+import { createGemInstance } from '../data/gems.js';
+import { SummonBinding } from './summonBinding.js';
 
 export class Overworld {
   constructor(game, spawnOverride) {
@@ -70,6 +72,7 @@ export class Overworld {
     const cutscenes = this.mapData.cutscenes
       ? this.mapData.cutscenes
       : (this.mapData.enterCutscene ? [this.mapData.enterCutscene] : []);
+    let firedCutscene = false;
     for (const cs of cutscenes) {
       if (this.game.flags.has(cs.flag)) continue;
       if (cs.requires && !this._meetsCutsceneRequires(cs.requires)) continue;
@@ -78,12 +81,23 @@ export class Overworld {
       this.game.save();
       // Bespoke visual + sfx layer fires the moment the cutscene starts.
       if (cs.visual) this._playCutsceneVisual(cs.visual);
+      const csFlag = cs.flag;
       setTimeout(() => {
         this.game.ui.showDialog(cs.speaker || '', cs.lines, ['Press onward'], () => {
           this.cinematicLock = 0;
+          this._maybeTriggerPostCutsceneEvent(csFlag);
         });
       }, cs.delay ?? 280);
+      firedCutscene = true;
       break;
+    }
+    // Migration / catch-up: if no cutscene fired but the player should have
+    // already received the first summon, kick off the binding now. Covers
+    // saves from before the binding hook existed.
+    if (!firedCutscene && this.mapData.id === 'bloomArena'
+        && this.game.flags.has('bloomArena:epilogue')
+        && !this.game.flags.has('stagShard:bound')) {
+      setTimeout(() => this._playStagBinding(), 600);
     }
   }
 
@@ -215,6 +229,44 @@ export class Overworld {
     return list.every(r => this.game.flags.has(r) || this.game.recruited?.has(r));
   }
 
+  // Hook for one-shot cinematics that fire AFTER a cutscene's dialog closes
+  // (the cutscene flag is already set at this point). Currently used to launch
+  // the first-summon binding scene right after the Bloom epilogue lands.
+  _maybeTriggerPostCutsceneEvent(csFlag) {
+    if (csFlag === 'bloomArena:epilogue' && !this.game.flags.has('stagShard:bound')) {
+      this._playStagBinding();
+    }
+  }
+
+  _playStagBinding() {
+    // Pause the overworld loop. SummonBinding owns the canvas + input for
+    // its duration and resumes us via the onDone callback. We delay the start
+    // by 400ms so the synthetic post-tap "click" from the dialog button
+    // doesn't immediately skip the binding.
+    this.cinematicLock = 999;
+    this.game.running = false;
+    setTimeout(() => {
+      const binding = new SummonBinding(
+        this.game.canvas,
+        this.game.ctx,
+        this.game.input,
+        () => {
+          const inst = createGemInstance('stagShard');
+          if (inst) this.game.inventory.gems.push(inst);
+          this.game.flags.add('stagShard:bound');
+          this.game.save();
+          this.game.ui.toast('Received Stag-Shard');
+          audio.play('levelup');
+          this.cinematicLock = 0;
+          this.game.running = true;
+          this.game.lastT = performance.now();
+          requestAnimationFrame(t => this.game.tick(t));
+        },
+      );
+      binding.start();
+    }, 400);
+  }
+
   update(dt) {
     this.fx.update(dt);
     if (this.bossCutscene) { this._updateBossCutscene(dt); return; }
@@ -274,7 +326,7 @@ export class Overworld {
 
     // Accumulate distance actually traveled and roll for random encounter.
     const moved = Math.hypot(ow.x - beforeX, ow.y - beforeY);
-    if (moved > 0 && (this.mapData.encounters?.length)) {
+    if (moved > 0 && (this.mapData.encounters?.length) && !this.game.encountersDisabled) {
       this.distSinceEncounter += moved;
       if (this.distSinceEncounter >= this.nextEncounterDist) {
         this.distSinceEncounter = 0;
@@ -969,6 +1021,27 @@ export class Overworld {
       const a = Math.min(1, this.transitionT / 0.5);
       ctx.fillStyle = `rgba(0,0,0,${a})`;
       ctx.fillRect(0, 0, this.game.viewW, this.game.viewH);
+    }
+
+    // TEMP debug readout — shows current map id + player tile coords so the
+    // player can point at a specific bush ("remove the bush at reachOuter 17,22").
+    // Remove this block once the hidden-item bushes have been sorted.
+    {
+      const tx = Math.floor(ow.x / TILE_SIZE);
+      const ty = Math.floor(ow.y / TILE_SIZE);
+      const label = `${this.mapData.id} ${tx},${ty}`;
+      ctx.save();
+      ctx.font = 'bold 13px system-ui';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const padX = 6, padY = 4;
+      const w = ctx.measureText(label).width + padX * 2;
+      const x = 6, y = this.game.viewH - 24;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(x, y, w, 18);
+      ctx.fillStyle = '#ffd84d';
+      ctx.fillText(label, x + padX, y + padY);
+      ctx.restore();
     }
 
     this.game.input.drawJoystick(ctx);

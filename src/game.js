@@ -106,7 +106,7 @@ export class Game {
       }
       if (!this.flags.has(givenFlag)) {
         this.ui.showDialog(npc.name, [
-          'Vorrin: "So. The Bloom is broken. Two of the seven mended. I would not have believed I would live to say that."',
+          '"So. The Bloom is broken. Two of the seven mended. I would not have believed I would live to say that."',
           '"There is a thing I would ask of you. The Bloom arena had an Order sigil set into its stone — a small, weatherworn thing, with all seven names cut into it."',
           '"Bring it back to Hearthstone. The town has never had a piece of the Order. It should — so we remember what we are fighting for, not only what against."',
         ], ['I\'ll find it', 'Later'], idx => {
