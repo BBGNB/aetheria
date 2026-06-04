@@ -145,7 +145,7 @@ export class Battle {
     const t3 = new Set([
       // -ga endings + curaga + heavy phys finishers
       'firaga','blizzaga','thundaga','waterga','blightga','thornga','holyga','bioga','curaga',
-      'snipe','hailstorm','crusher','multishot','aimedVolley',
+      'snipe','hailstorm','crusher','multishot','aimedVolley','whirlwind',
       // 2-gem rare/strong combo fusions
       'duality','plagueGrove','eclipseLullaby','hellfire','wildfire','wildbloom',
       'toxinflood','napalm','solarFlare','deluge','monsoon','rotbloom','voidlight',
@@ -4129,6 +4129,78 @@ export class Battle {
     });
   }
 
+  // ---- FIGHTER: WHIRLWIND — spinning blade sweep per hit ----
+  // Fires per-target per-hit (Whirlwind hits 3 times so this runs 3× per
+  // enemy). Each call draws one curved silver blade-arc sweeping across
+  // the target, plus wind streaks radiating outward, plus a slash spark.
+  _sigWhirlwind(x, y, scale) {
+    // Brief screen flash on each hit — cyan-white wind tinge
+    this.fx.screenFlash('#e8f4ff', 0.18, 0.18);
+    this.battleShake = Math.max(this.battleShake, 9);
+    // Curved blade arc sweeping across the target
+    this._drawBladeArc(x, y, scale);
+    // Wind streaks radiating outward — slashing air visualized
+    for (let i = 0; i < 12; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 140 + Math.random() * 120;
+      this.fx.spawn({
+        x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        gravity: 0, drag: 0.18,
+        size: 2 + Math.random(), color: i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#cdd6e0' : '#a8c0e0',
+        life: 0.5, shrink: true, glow: 6,
+      });
+    }
+    // Quick shockwave + slash hit spark
+    this.fx.shockwave(x, y, '#dde8ff', 90 * scale, 0.4);
+    this.fx.slashHit(x, y);
+    // Audio — wind cut + impact
+    audio.play('thornCrack');
+  }
+
+  // Curved silver blade-arc — a fast 180° sweep showing the spinning weapon
+  // catching the target. Used by Whirlwind's per-hit signature.
+  _drawBladeArc(cx, cy, scale) {
+    // Each hit picks a random arc rotation so 3 sweeps look distinct
+    const baseAng = Math.random() * Math.PI * 2;
+    const radius = 32 * scale;
+    this.fx.shape(0.32, (ctx, k) => {
+      const sweep = Math.PI * 1.0 * k;  // sweeps 180° over the duration
+      const fade = k > 0.7 ? Math.max(0, 1 - (k - 0.7) / 0.3) : 1;
+      const alpha = Math.min(1, k * 4) * fade;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(baseAng);
+      // Trailing motion-blur arc — outer glow layer
+      ctx.strokeStyle = `rgba(220,235,255,${alpha * 0.6})`;
+      ctx.lineWidth = 4 * scale;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, -Math.PI * 0.5, -Math.PI * 0.5 + sweep);
+      ctx.stroke();
+      // Inner bright blade-edge
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.lineWidth = 2 * scale;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, -Math.PI * 0.5, -Math.PI * 0.5 + sweep);
+      ctx.stroke();
+      // Tip of the blade — a bright point where the arc currently ends
+      ctx.shadowBlur = 0;
+      const tipAng = -Math.PI * 0.5 + sweep;
+      const tipX = Math.cos(tipAng) * radius;
+      const tipY = Math.sin(tipAng) * radius;
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(tipX, tipY, 3.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+
   _playComboSignature(skill, x, y, scale) {
     if (!skill?.id) return;
     const id = skill.id;
@@ -4145,6 +4217,7 @@ export class Battle {
     if (id === 'verdantColossus') { this._sigVerdantColossus(x, y, scale); return; }
     // ---- FIGHTER heavy-strikes — earth-cracking overhead blows ----
     if (id === 'earthsplit') { this._sigEarthsplit(x, y, scale); return; }
+    if (id === 'whirlwind')  { this._sigWhirlwind(x, y, scale); return; }
     // Endgame trio cataclysm — config-driven; bespoke palette per spell.
     const trio = TRIO_SIGNATURES[id];
     if (trio) { this._playTrioSignature(x, y, scale, trio); return; }
@@ -4640,8 +4713,16 @@ export class Battle {
         const endDelay = (tier >= 2 ? 0.30 : 0) + (tier >= 3 ? 0.45 : 0.32);
         this._delay(windup, () => {
           fire(targets);
+          // Extra cast count = max of linker-driven (double/quad) and the
+          // skill's native `hits` field. Linkers don't stack with each other
+          // (`_composeLinkers` picks the higher) and don't multiply with
+          // native hits — we just take whichever is bigger. So Whirlwind
+          // with hits=3 fires 3 total (2 extra), even without a linker.
           const lk = skill._linker || '';
-          const extra = lk.includes('quad') ? 3 : lk.includes('double') ? 1 : 0;
+          const linkerCasts = lk.includes('quad') ? 4 : lk.includes('double') ? 2 : 1;
+          const nativeHits = skill.hits || 1;
+          const totalCasts = Math.max(linkerCasts, nativeHits);
+          const extra = totalCasts - 1;
           if (extra > 0) {
             const step = 0.45;
             for (let n = 1; n <= extra; n++) {
