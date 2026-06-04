@@ -169,6 +169,8 @@ export class Battle {
       'drowsingTide','hellbrand','frostTomb','livingPyre','glacialVine','poppysleep',
       'pyrelight','caustic','lethalTwilight','coldSteel','burningEdge','mercyStroke',
       'frozentoxin',
+      // Fighter heavy-strikes — earth-cracking overhead blows
+      'earthsplit','overhead',
     ]);
     if (ult.has(skill.id)) return 4;
     if (t3.has(skill.id)) return 3;
@@ -4025,6 +4027,108 @@ export class Battle {
     audio.play('bossThump'); audio.play('thornCrack');
   }
 
+  // ---- FIGHTER: EARTHSPLITTER — heavy overhead with ground fissure ----
+  // The fighter brings a weapon down on a single target — earth itself
+  // cracks beneath them. White-hot impact, rock chunks erupting upward,
+  // dust cloud, lingering fissure scorching the ground for ~2 seconds.
+  _sigEarthsplit(x, y, scale) {
+    // Impact white flash + heavy screen shake — feels physically weighty
+    this.fx.screenFlash('#fff0c8', 0.45, 0.32);
+    this.battleShake = Math.max(this.battleShake, 22);
+    // Triple shockwave: white-hot core, amber concussion, brown dust ring
+    this.fx.shockwave(x, y, '#ffffff', 90 * scale, 0.45);
+    this.fx.shockwave(x, y, '#ffd884', 150 * scale, 0.75);
+    this.fx.shockwave(x, y, '#7a5a3a', 220 * scale, 0.95);
+    // Bright impact starBurst
+    this.fx.starBurst(x, y, '#fff0c8', scale * 1.4);
+    // Custom ground-fissure crack — jagged lines splitting outward from
+    // the impact point, persists ~1.8s as scorched ground.
+    this._drawEarthFissure(x, y, scale, 1.8);
+    // Rock chunks erupting upward + outward (with gravity, they fall back)
+    for (let i = 0; i < 22; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+      const sp = 120 + Math.random() * 180;
+      this.fx.spawn({
+        x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        gravity: 320, drag: 0.06,
+        size: 3 + Math.random() * 3,
+        color: i % 4 === 0 ? '#7a5a3a' : i % 4 === 1 ? '#3a2810' : i % 4 === 2 ? '#5a3a18' : '#9a7a5a',
+        life: 1.6, shrink: false, glow: 0,
+      });
+    }
+    // Heavy dust cloud — slow brown-grey puffs billowing outward
+    for (let i = 0; i < 30; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 30 + Math.random() * 90;
+      this.fx.spawn({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 12,
+        vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp * 0.4 - 20,
+        gravity: -8, drag: 0.5,
+        size: 8 + Math.random() * 6,
+        color: i % 3 === 0 ? 'rgba(140,110,80,0.55)' : i % 3 === 1 ? 'rgba(170,140,100,0.5)' : 'rgba(100,80,60,0.6)',
+        life: 1.4 + Math.random() * 0.5, shrink: false, glow: 0,
+      });
+    }
+    // Lingering scorch on the cracked ground
+    this.fx.lingerScorch(x, y, '#5a3a18', scale * 1.1, 1.8);
+    // Audio — heavy thump + cracking + low rumble
+    audio.play('bossThump');
+    audio.play('thornCrack');
+    audio.play('rift');
+  }
+
+  // The fissure itself — a custom jagged crack pattern that fans outward
+  // from the impact point in 5 directions, drawn over `durSec`. Used by
+  // Earthsplitter's impact (and any future ground-cracking attack).
+  _drawEarthFissure(cx, cy, scale, durSec) {
+    // Pre-generate 5 jagged crack paths fanning outward in random directions
+    const cracks = [];
+    for (let i = 0; i < 5; i++) {
+      const baseAng = (i / 5) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+      const segs = 4 + Math.floor(Math.random() * 3);
+      const path = [[0, 0]];
+      let ang = baseAng;
+      for (let s = 0; s < segs; s++) {
+        const len = (20 + Math.random() * 30) * scale;
+        ang += (Math.random() - 0.5) * 1.1;
+        const last = path[path.length - 1];
+        path.push([last[0] + Math.cos(ang) * len, last[1] + Math.sin(ang) * len * 0.55]);
+      }
+      cracks.push(path);
+    }
+    this.fx.shape(durSec, (ctx, k) => {
+      const grow = Math.min(1, k * 3.5);
+      const fade = k > 0.7 ? Math.max(0, 1 - (k - 0.7) / 0.3) : 1;
+      const alpha = fade;
+      ctx.save();
+      ctx.translate(cx, cy);
+      for (const path of cracks) {
+        const drawN = Math.min(path.length, Math.ceil(path.length * grow));
+        if (drawN < 2) continue;
+        // Outer dark fissure (the void inside the crack)
+        ctx.strokeStyle = `rgba(8,4,2,${alpha * 0.95})`;
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(path[0][0], path[0][1]);
+        for (let i = 1; i < drawN; i++) ctx.lineTo(path[i][0], path[i][1]);
+        ctx.stroke();
+        // Inner amber glow — fresh-broken stone heat
+        ctx.strokeStyle = `rgba(255,200,90,${alpha * 0.75})`;
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = '#ff8a3b';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(path[0][0], path[0][1]);
+        for (let i = 1; i < drawN; i++) ctx.lineTo(path[i][0], path[i][1]);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      ctx.restore();
+    });
+  }
+
   _playComboSignature(skill, x, y, scale) {
     if (!skill?.id) return;
     const id = skill.id;
@@ -4039,6 +4143,8 @@ export class Battle {
     if (id === 'sunderedHeart')  { this._sigSunderedHeart(x, y, scale); return; }
     if (id === 'auroraThrone')   { this._sigAuroraThrone(x, y, scale); return; }
     if (id === 'verdantColossus') { this._sigVerdantColossus(x, y, scale); return; }
+    // ---- FIGHTER heavy-strikes — earth-cracking overhead blows ----
+    if (id === 'earthsplit') { this._sigEarthsplit(x, y, scale); return; }
     // Endgame trio cataclysm — config-driven; bespoke palette per spell.
     const trio = TRIO_SIGNATURES[id];
     if (trio) { this._playTrioSignature(x, y, scale, trio); return; }

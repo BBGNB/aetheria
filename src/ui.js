@@ -208,8 +208,11 @@ export class UI {
     const el = document.createElement('div');
     el.className = 'targetSelect';
     const hint = side === 'party' ? 'Tap an ally' : 'Tap a target';
+    // Position the hint below the party bars (which live at the top under
+    // the safe-area inset). Two rows of bars worst case ≈ 130px, plus the
+    // notch padding via env(safe-area-inset-top).
     el.innerHTML = `
-      <div class="hint" style="top:30px">${hint}</div>
+      <div class="hint" style="top:calc(env(safe-area-inset-top, 0) + 140px)">${hint}</div>
       <button class="cancelTargetBtn">✕ Cancel</button>`;
     document.body.appendChild(el);
     if (onCancel) {

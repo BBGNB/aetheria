@@ -8,7 +8,8 @@
 
 const SLIME_PALETTE = {
   body: '#7adaa1', shade: '#2a4a32', highlight: '#d8fff0',
-  eye: '#1a3a22', drip: '#7adaa1', fang: '#ffffff',
+  eye: '#ff3b3b', eyeGlow: '#ff5050', pupil: '#1a0608',
+  drip: '#7adaa1', fang: '#ffffff',
 };
 
 function drawSlime(ctx, e) {
@@ -62,40 +63,88 @@ function drawSlime(ctx, e) {
     ctx.fill();
   }
 
-  // Eyes (with whites + pupils + highlight)
-  const eyeY = -r * 0.12 + bob;
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(-r * 0.32, eyeY, 4, 0, Math.PI * 2);
-  ctx.arc(r * 0.32, eyeY, 4, 0, Math.PI * 2);
-  ctx.fill();
+  // Sinister glowing eyes — red orb with a vertical slit pupil
+  const eyeY = -r * 0.14 + bob;
+  const eyePulse = 0.85 + 0.15 * Math.sin(e.t * 5);
   ctx.fillStyle = p.eye;
+  ctx.shadowColor = p.eyeGlow || p.eye;
+  ctx.shadowBlur = 9 + eyePulse * 4;
   ctx.beginPath();
-  ctx.arc(-r * 0.30, eyeY, 2, 0, Math.PI * 2);
-  ctx.arc(r * 0.34, eyeY, 2, 0, Math.PI * 2);
+  ctx.arc(-r * 0.30, eyeY, 4.2 * eyePulse, 0, Math.PI * 2);
+  ctx.arc(r * 0.30, eyeY, 4.2 * eyePulse, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
+  ctx.shadowBlur = 0;
+  // Vertical slit pupil — reptilian, predatory
+  ctx.fillStyle = p.pupil || p.shade;
   ctx.beginPath();
-  ctx.arc(-r * 0.33, eyeY - 1, 0.8, 0, Math.PI * 2);
-  ctx.arc(r * 0.31, eyeY - 1, 0.8, 0, Math.PI * 2);
+  ctx.ellipse(-r * 0.30, eyeY, 0.9, 3.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.30, eyeY, 0.9, 3.2, 0, 0, Math.PI * 2);
   ctx.fill();
-
-  // Smile with two small fangs
+  // Tiny inner highlight at top of each eye — gives them life
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.31, eyeY - 1.6, 0.7, 0, Math.PI * 2);
+  ctx.arc(r * 0.29, eyeY - 1.6, 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  // Sharp brow lines above the eyes — angry V
   ctx.strokeStyle = p.shade;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.8;
   ctx.beginPath();
-  ctx.arc(0, r * 0.12 + bob, r * 0.26, 0.1, Math.PI - 0.1);
+  ctx.moveTo(-r * 0.42, eyeY - r * 0.18);
+  ctx.lineTo(-r * 0.20, eyeY - r * 0.08);
+  ctx.moveTo(r * 0.42, eyeY - r * 0.18);
+  ctx.lineTo(r * 0.20, eyeY - r * 0.08);
   ctx.stroke();
-  ctx.fillStyle = p.fang;
+
+  // Jagged gaping maw — downward zigzag with prominent fangs and drool
+  const mouthY = r * 0.16 + bob;
+  // Dark gaping interior
+  ctx.fillStyle = '#0a0a0a';
   ctx.beginPath();
-  ctx.moveTo(-r * 0.13, r * 0.18 + bob);
-  ctx.lineTo(-r * 0.09, r * 0.30 + bob);
-  ctx.lineTo(-r * 0.05, r * 0.18 + bob);
+  ctx.moveTo(-r * 0.28, mouthY);
+  ctx.lineTo(-r * 0.20, mouthY + r * 0.08);
+  ctx.lineTo(-r * 0.10, mouthY + r * 0.04);
+  ctx.lineTo(0,           mouthY + r * 0.18);
+  ctx.lineTo(r * 0.10,  mouthY + r * 0.04);
+  ctx.lineTo(r * 0.20,  mouthY + r * 0.08);
+  ctx.lineTo(r * 0.28,  mouthY);
   ctx.closePath();
-  ctx.moveTo(r * 0.05, r * 0.18 + bob);
-  ctx.lineTo(r * 0.09, r * 0.30 + bob);
-  ctx.lineTo(r * 0.13, r * 0.18 + bob);
-  ctx.closePath();
+  ctx.fill();
+  // Outline
+  ctx.strokeStyle = p.shade;
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  // Four jagged fangs hanging from the upper edge
+  ctx.fillStyle = p.fang;
+  ctx.strokeStyle = p.shade;
+  ctx.lineWidth = 0.9;
+  const fang = (cx, w, h) => {
+    ctx.beginPath();
+    ctx.moveTo(cx - w, mouthY);
+    ctx.lineTo(cx,     mouthY + h);
+    ctx.lineTo(cx + w, mouthY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  };
+  fang(-r * 0.20, r * 0.04, r * 0.16);
+  fang(-r * 0.07, r * 0.035, r * 0.13);
+  fang(r * 0.07,  r * 0.035, r * 0.13);
+  fang(r * 0.20,  r * 0.04, r * 0.16);
+  // Drool — single string dripping from the lower jaw, pulses slowly
+  const droolPhase = (e.t * 0.45) % 1;
+  const droolLen = r * 0.18 + droolPhase * r * 0.12;
+  ctx.strokeStyle = 'rgba(216,255,232,0.85)';
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, mouthY + r * 0.18);
+  ctx.lineTo(0, mouthY + r * 0.18 + droolLen);
+  ctx.stroke();
+  // Drool bead at the tip
+  ctx.fillStyle = 'rgba(216,255,232,0.9)';
+  ctx.beginPath();
+  ctx.arc(0, mouthY + r * 0.18 + droolLen, 1.6, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -1328,9 +1377,9 @@ export const ENEMIES = [
   },
   // ----- TIER 3 (Verdant Reach) ------------------------------------------
   {
-    id: 'mossback', name: 'Mossback Treant', tier: 3, level: 7,
-    maxHp: 120, atk: 18, def: 9, mag: 4, spd: 4,
-    xp: 56, gold: 22,
+    id: 'mossback', name: 'Mossback Treant', tier: 3, level: 9,
+    maxHp: 162, atk: 23, def: 12, mag: 6, spd: 5,
+    xp: 76, gold: 30,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 0.22 },
       { kind: 'gem', id: 'vigorStone', chance: 0.06 },
@@ -1342,9 +1391,9 @@ export const ENEMIES = [
     draw: drawTreant,
   },
   {
-    id: 'brambleSprite', name: 'Bramble Sprite', tier: 3, level: 6,
-    maxHp: 40, atk: 14, def: 3, spd: 13,
-    xp: 44, gold: 14,
+    id: 'brambleSprite', name: 'Bramble Sprite', tier: 3, level: 8,
+    maxHp: 54, atk: 18, def: 4, spd: 14,
+    xp: 60, gold: 19,
     drops: [
       { kind: 'consumable', id: 'ether', chance: 0.22 },
       { kind: 'gem', id: 'venomFang', chance: 0.07 },
@@ -1356,9 +1405,9 @@ export const ENEMIES = [
     draw: drawSprite,
   },
   {
-    id: 'witheredStag', name: 'Withered Stag', tier: 3, level: 7,
-    maxHp: 96, atk: 17, def: 6, spd: 9,
-    xp: 54, gold: 20,
+    id: 'witheredStag', name: 'Withered Stag', tier: 3, level: 9,
+    maxHp: 130, atk: 22, def: 8, spd: 10,
+    xp: 73, gold: 27,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 0.18 },
       { kind: 'gem', id: 'brandOfCinders', chance: 0.06 },
@@ -1372,9 +1421,9 @@ export const ENEMIES = [
     draw: drawWitheredStag,
   },
   {
-    id: 'choirmoth', name: 'Choirmoth', tier: 3, level: 6,
-    maxHp: 62, atk: 13, def: 4, mag: 14, spd: 10,
-    xp: 50, gold: 16,
+    id: 'choirmoth', name: 'Choirmoth', tier: 3, level: 8,
+    maxHp: 84, atk: 17, def: 5, mag: 18, spd: 12,
+    xp: 68, gold: 22,
     drops: [
       { kind: 'consumable', id: 'ether', chance: 0.25 },
       { kind: 'gem', id: 'sandmanBell', chance: 0.06 },
