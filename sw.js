@@ -1,6 +1,6 @@
-// Service worker — caches the game shell so it works offline after the
-// first load. Uses a versioned cache; bump CACHE to invalidate on update.
-const CACHE = 'aetheria-v8';
+// Service worker — network-first with cache fallback. Updates land on the
+// next load; cache only kicks in when offline. Bump CACHE to invalidate.
+const CACHE = 'aetheria-v9';
 const SHELL = [
   './',
   './index.html',
@@ -24,16 +24,15 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin) return;
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const fetchPromise = fetch(e.request).then(res => {
-        if (res && res.status === 200 && res.type === 'basic') {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(e.request).then(res => {
+      if (res && res.status === 200 && res.type === 'basic') {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
