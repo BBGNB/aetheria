@@ -9,6 +9,9 @@ export function drawNpc(ctx, npc, t, r) {
     case 'hermit:sable':     drawSable(ctx, t, r); break;
     case 'recruit:sable':    drawSable(ctx, t, r); break;
     case 'tender:caretaker': drawCaretaker(ctx, t, r); break;
+    case 'bren:dying':       drawBren(ctx, t, r); break;
+    case 'cal:scout':        drawCal(ctx, t, r); break;
+    case 'cal:pinned':       drawCalPinned(ctx, t, r); break;
     default:                 drawGeneric(ctx, npc, t, r);
   }
 }
@@ -853,6 +856,447 @@ function drawCaretaker(ctx, t, r) {
   }
 
   ctx.restore();
+}
+
+// --- Bren — dying scout slumped against the gatepost ------------------------
+
+function drawBren(ctx, t, r) {
+  const slowBob = Math.sin(t * 0.8) * 0.5; // shallow ragged breathing
+  drawShadow(ctx, r);
+  ctx.save();
+  ctx.translate(0, slowBob);
+  // Slumped pose — body tilts ~15deg.
+  ctx.rotate(-0.20);
+
+  // Leather tunic — brown with darker mud at the bottom
+  const tunic = ctx.createLinearGradient(0, -r * 0.3, 0, r);
+  tunic.addColorStop(0, '#9a6a3a');
+  tunic.addColorStop(0.6, '#6a4a28');
+  tunic.addColorStop(1, '#2a1a08');
+  ctx.fillStyle = tunic;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.45, -r * 0.20);
+  ctx.lineTo(r * 0.45, -r * 0.20);
+  ctx.quadraticCurveTo(r * 0.7, r * 0.4, r * 0.75, r);
+  ctx.quadraticCurveTo(0, r * 1.04, -r * 0.75, r);
+  ctx.quadraticCurveTo(-r * 0.7, r * 0.4, -r * 0.45, -r * 0.20);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Blood seeping from the side — dark red, wet sheen
+  ctx.fillStyle = '#7a1010';
+  ctx.beginPath();
+  ctx.moveTo(r * 0.05, r * 0.05);
+  ctx.quadraticCurveTo(r * 0.30, r * 0.30, r * 0.20, r * 0.85);
+  ctx.quadraticCurveTo(r * 0.08, r * 0.55, r * 0.0, r * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  // Wet glint on the blood
+  ctx.fillStyle = 'rgba(255,80,80,0.45)';
+  ctx.beginPath();
+  ctx.arc(r * 0.15, r * 0.30, r * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head — pale, sweat-sheened
+  ctx.fillStyle = '#e8c8a0';
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.45, r * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7a4a28';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+  // Sweat highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.12, -r * 0.55, r * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Dishevelled brown hair
+  ctx.fillStyle = '#5a3a18';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.28, -r * 0.48);
+  ctx.quadraticCurveTo(-r * 0.2, -r * 0.74, 0, -r * 0.72);
+  ctx.quadraticCurveTo(r * 0.2, -r * 0.74, r * 0.28, -r * 0.48);
+  ctx.lineTo(r * 0.22, -r * 0.42);
+  ctx.lineTo(-r * 0.22, -r * 0.42);
+  ctx.closePath();
+  ctx.fill();
+
+  // Closed/pained eyes
+  ctx.strokeStyle = '#1a0d0d';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.14, -r * 0.46);
+  ctx.lineTo(-r * 0.04, -r * 0.46);
+  ctx.moveTo(r * 0.04, -r * 0.46);
+  ctx.lineTo(r * 0.14, -r * 0.46);
+  ctx.stroke();
+  // Furrowed brow
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.12, -r * 0.52);
+  ctx.lineTo(-r * 0.04, -r * 0.50);
+  ctx.moveTo(r * 0.04, -r * 0.50);
+  ctx.lineTo(r * 0.12, -r * 0.52);
+  ctx.stroke();
+  // Bloody scratch on cheek
+  ctx.strokeStyle = '#7a1010';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.18, -r * 0.34);
+  ctx.lineTo(-r * 0.06, -r * 0.40);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// --- Cal — wiry young hunter, brown leathers --------------------------------
+
+function drawCal(ctx, t, r) {
+  const bob = Math.sin(t * 2.2) * 1.2;
+  drawShadow(ctx, r);
+  ctx.save();
+  ctx.translate(0, bob);
+
+  // Leather hunter's vest — green-brown
+  const vest = ctx.createLinearGradient(0, -r * 0.3, 0, r);
+  vest.addColorStop(0, '#8a7a3a');
+  vest.addColorStop(0.6, '#5a4a18');
+  vest.addColorStop(1, '#2a200a');
+  ctx.fillStyle = vest;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.34, -r * 0.30);
+  ctx.lineTo(r * 0.34, -r * 0.30);
+  ctx.bezierCurveTo(r * 0.55, r * 0.0, r * 0.78, r * 0.5, r * 0.8, r);
+  ctx.quadraticCurveTo(0, r * 1.04, -r * 0.8, r);
+  ctx.bezierCurveTo(-r * 0.78, r * 0.5, -r * 0.55, r * 0.0, -r * 0.34, -r * 0.30);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  // Cross-strap from quiver
+  ctx.strokeStyle = '#3a2818';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.25, -r * 0.22);
+  ctx.lineTo(r * 0.20, r * 0.40);
+  ctx.stroke();
+
+  // Quiver behind right shoulder
+  ctx.fillStyle = '#3a2818';
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(r * 0.18, -r * 0.05, r * 0.20, r * 0.55, 2) : ctx.rect(r * 0.18, -r * 0.05, r * 0.20, r * 0.55);
+  ctx.fill();
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Arrow fletching peeking out
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = ['#aa3030', '#c8aa18', '#aa3030'][i];
+    ctx.beginPath();
+    ctx.moveTo(r * 0.22 + i * 0.04 * r, -r * 0.18);
+    ctx.lineTo(r * 0.20 + i * 0.04 * r, -r * 0.06);
+    ctx.lineTo(r * 0.26 + i * 0.04 * r, -r * 0.06);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Head — tan, weathered
+  ctx.fillStyle = '#e8c8a0';
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.45, r * 0.27, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7a4a28';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+
+  // Dark blond shaggy hair
+  ctx.fillStyle = '#a08240';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.27, -r * 0.50);
+  ctx.quadraticCurveTo(-r * 0.18, -r * 0.72, 0, -r * 0.70);
+  ctx.quadraticCurveTo(r * 0.18, -r * 0.72, r * 0.27, -r * 0.50);
+  ctx.lineTo(r * 0.22, -r * 0.42);
+  ctx.lineTo(-r * 0.22, -r * 0.42);
+  ctx.closePath();
+  ctx.fill();
+
+  // Eyes — alert, brown
+  ctx.fillStyle = '#3a2010';
+  ctx.beginPath();
+  ctx.arc(-r * 0.10, -r * 0.45, Math.max(1.4, r * 0.05), 0, Math.PI * 2);
+  ctx.arc(r * 0.10, -r * 0.45, Math.max(1.4, r * 0.05), 0, Math.PI * 2);
+  ctx.fill();
+  // Glint
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(-r * 0.085, -r * 0.46, Math.max(0.6, r * 0.018), 0, Math.PI * 2);
+  ctx.arc(r * 0.115, -r * 0.46, Math.max(0.6, r * 0.018), 0, Math.PI * 2);
+  ctx.fill();
+  // Small grateful smile
+  ctx.strokeStyle = '#3a2010';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.30, r * 0.08, 0.3, Math.PI - 0.3);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// --- Cal — pinned against tree, wounded, alert ------------------------------
+// Pre-rescue pose: slumped at the base of a pine, one knee up, defensive arm
+// raised, bow snapped at his side, blood on the shoulder, sweat sheen on the
+// brow, alternating distress glyph above. Same color palette as drawCal so the
+// player reads them as the same person.
+
+function drawCalPinned(ctx, t, r) {
+  // Shallow ragged breathing — quicker than Bren (he's still fighting).
+  const pant = Math.sin(t * 4.2) * 0.6;
+  // Wider shadow (he's down on the ground).
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.95, r * 1.10, r * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.save();
+  ctx.translate(0, pant);
+
+  // Pine-trunk slab behind him — bark texture, suggests he's pinned to it.
+  ctx.save();
+  ctx.translate(0, -r * 0.05);
+  const bark = ctx.createLinearGradient(-r * 0.55, 0, r * 0.55, 0);
+  bark.addColorStop(0, '#2a1808');
+  bark.addColorStop(0.5, '#5a3a18');
+  bark.addColorStop(1, '#2a1808');
+  ctx.fillStyle = bark;
+  ctx.beginPath();
+  ctx.rect(-r * 0.55, -r * 0.85, r * 1.10, r * 1.10);
+  ctx.fill();
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Bark grooves
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < 5; i++) {
+    const x = -r * 0.4 + i * r * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(x, -r * 0.85);
+    ctx.bezierCurveTo(x + r * 0.04, -r * 0.5, x - r * 0.04, -r * 0.1, x + r * 0.02, r * 0.25);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Body tilts slightly to the right — he's slumped against the trunk.
+  ctx.rotate(0.12);
+
+  // Hunter's vest — same green-brown as drawCal, but torn at the hem
+  const vest = ctx.createLinearGradient(0, -r * 0.3, 0, r);
+  vest.addColorStop(0, '#8a7a3a');
+  vest.addColorStop(0.6, '#5a4a18');
+  vest.addColorStop(1, '#2a200a');
+  ctx.fillStyle = vest;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.34, -r * 0.30);
+  ctx.lineTo(r * 0.34, -r * 0.30);
+  ctx.bezierCurveTo(r * 0.55, r * 0.0, r * 0.78, r * 0.5, r * 0.8, r);
+  // Torn ragged hem
+  ctx.lineTo(r * 0.55, r * 0.92);
+  ctx.lineTo(r * 0.30, r);
+  ctx.lineTo(0, r * 0.94);
+  ctx.lineTo(-r * 0.30, r);
+  ctx.lineTo(-r * 0.55, r * 0.92);
+  ctx.bezierCurveTo(-r * 0.78, r * 0.5, -r * 0.55, r * 0.0, -r * 0.34, -r * 0.30);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Blood seep at the left shoulder — wolf bite.
+  ctx.fillStyle = '#7a1010';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.30, -r * 0.18);
+  ctx.quadraticCurveTo(-r * 0.45, r * 0.05, -r * 0.32, r * 0.30);
+  ctx.quadraticCurveTo(-r * 0.20, r * 0.10, -r * 0.18, -r * 0.20);
+  ctx.closePath();
+  ctx.fill();
+  // Wet glint on the blood
+  ctx.fillStyle = 'rgba(255,80,80,0.45)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.32, r * 0.05, r * 0.045, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Snapped bow lying across his lap — string broken, top half angled away.
+  ctx.save();
+  ctx.translate(r * 0.10, r * 0.55);
+  ctx.rotate(-0.3);
+  ctx.strokeStyle = '#3a2818';
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  // Lower limb (intact-ish)
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.35, r * 0.08);
+  ctx.quadraticCurveTo(-r * 0.05, -r * 0.04, r * 0.05, -r * 0.10);
+  ctx.stroke();
+  // Snap break — splinter
+  ctx.strokeStyle = '#a88848';
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.05, -r * 0.10);
+  ctx.lineTo(r * 0.10, -r * 0.05);
+  ctx.lineTo(r * 0.08, -r * 0.14);
+  ctx.lineTo(r * 0.13, -r * 0.10);
+  ctx.stroke();
+  // Upper limb (snapped off, lying further along)
+  ctx.strokeStyle = '#3a2818';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.16, -r * 0.04);
+  ctx.quadraticCurveTo(r * 0.30, -r * 0.18, r * 0.42, -r * 0.30);
+  ctx.stroke();
+  // Frayed string trailing
+  ctx.strokeStyle = '#d8c8a0';
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.32, r * 0.06);
+  ctx.quadraticCurveTo(0, r * 0.18, r * 0.13, -r * 0.04);
+  ctx.stroke();
+  ctx.restore();
+
+  // Defensive arm raised in front of his face — the camera-right arm comes up.
+  ctx.save();
+  ctx.translate(r * 0.05, -r * 0.05);
+  // Sleeve
+  ctx.fillStyle = '#5a4a18';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(r * 0.20, -r * 0.20, r * 0.32, -r * 0.42);
+  ctx.lineTo(r * 0.42, -r * 0.36);
+  ctx.quadraticCurveTo(r * 0.30, -r * 0.12, r * 0.10, r * 0.06);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Hand at the top of the arc — clenched
+  ctx.fillStyle = '#e8c8a0';
+  ctx.beginPath();
+  ctx.arc(r * 0.36, -r * 0.42, r * 0.10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7a4a28';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+  // Knuckle lines
+  ctx.strokeStyle = '#7a4a28';
+  ctx.lineWidth = 0.7;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(r * 0.32 + i * r * 0.03, -r * 0.48);
+    ctx.lineTo(r * 0.34 + i * r * 0.03, -r * 0.44);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Head — tan, sweat-sheened, looking up to camera-right (toward attacker)
+  ctx.save();
+  ctx.translate(-r * 0.06, 0);
+  ctx.rotate(-0.15);
+  ctx.fillStyle = '#e8c8a0';
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.45, r * 0.27, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7a4a28';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+  // Sweat highlight on the brow
+  ctx.fillStyle = 'rgba(255,255,255,0.30)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.10, -r * 0.55, r * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  // Sweat bead trickling
+  ctx.fillStyle = 'rgba(180,220,255,0.7)';
+  ctx.beginPath();
+  ctx.arc(r * 0.05, -r * 0.32 + Math.sin(t * 3) * 0.6, r * 0.025, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Shaggy brown hair, damp and pushed back
+  ctx.fillStyle = '#5a3a18';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.26, -r * 0.48);
+  ctx.quadraticCurveTo(-r * 0.18, -r * 0.74, 0, -r * 0.72);
+  ctx.quadraticCurveTo(r * 0.20, -r * 0.74, r * 0.26, -r * 0.46);
+  ctx.lineTo(r * 0.22, -r * 0.42);
+  ctx.lineTo(-r * 0.22, -r * 0.42);
+  ctx.closePath();
+  ctx.fill();
+
+  // Wide eyes — alert, fearful. Pupil shifts slightly with t to read "tracking".
+  const eyeShift = Math.sin(t * 2.6) * 0.5;
+  ctx.fillStyle = '#f8e8c8';
+  ctx.beginPath();
+  ctx.arc(-r * 0.08, -r * 0.46, r * 0.055, 0, Math.PI * 2);
+  ctx.arc(r * 0.08, -r * 0.46, r * 0.055, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a0d0d';
+  ctx.beginPath();
+  ctx.arc(-r * 0.08 + eyeShift * 0.4, -r * 0.46, r * 0.025, 0, Math.PI * 2);
+  ctx.arc(r * 0.08 + eyeShift * 0.4, -r * 0.46, r * 0.025, 0, Math.PI * 2);
+  ctx.fill();
+  // Furrowed brow
+  ctx.strokeStyle = '#3a2014';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.16, -r * 0.55);
+  ctx.lineTo(-r * 0.04, -r * 0.52);
+  ctx.moveTo(r * 0.04, -r * 0.52);
+  ctx.lineTo(r * 0.16, -r * 0.55);
+  ctx.stroke();
+  // Open mouth — gritted teeth
+  ctx.fillStyle = '#3a1a0d';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.30, r * 0.07, r * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Teeth glint
+  ctx.fillStyle = '#f4eecf';
+  ctx.beginPath();
+  ctx.rect(-r * 0.055, -r * 0.32, r * 0.11, r * 0.018);
+  ctx.fill();
+  // Bloody scratch across cheek
+  ctx.strokeStyle = '#7a1010';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.18, -r * 0.34);
+  ctx.lineTo(-r * 0.04, -r * 0.40);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+
+  // Distress glyph (! mark) floating above — pulses on/off every ~0.9s for
+  // an extra layer of "this guy is in trouble" readability at a glance.
+  const pulse = (Math.sin(t * 6.5) + 1) * 0.5;
+  if (pulse > 0.5) {
+    const ga = (pulse - 0.5) * 2;
+    ctx.save();
+    ctx.translate(r * 0.55, -r * 1.05);
+    ctx.fillStyle = 'rgba(255,80,80,' + (0.75 * ga) + ')';
+    ctx.strokeStyle = 'rgba(40,0,0,' + (0.85 * ga) + ')';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.06, -r * 0.18);
+    ctx.lineTo(r * 0.06, -r * 0.18);
+    ctx.lineTo(r * 0.03, r * 0.06);
+    ctx.lineTo(-r * 0.03, r * 0.06);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, r * 0.14, r * 0.04, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
 }
 
 // --- Generic villager fallback ----------------------------------------------

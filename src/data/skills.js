@@ -28,95 +28,95 @@ export const SKILLS = [
     cost: 18, baseId: 'rallyingCry', kind: 'heal', power: 40, target: 'all' },
 
   // ---- BLACK magic --------------------------------------------------------
-  { id: 'fire',    name: 'Fire',    icon: '🔥', desc: 'Burns one enemy with flame.',
+  { id: 'fire',    name: 'Ember',   icon: '🔥', desc: 'Burns one enemy with flame.',
     cost: 4, kind: 'magic', power: 1.7, target: 'one', element: 'fire' },
-  { id: 'fira',    name: 'Fira',    icon: '🔥', desc: 'Stronger flame on one enemy. May set them ablaze.',
+  { id: 'fira',    name: 'Pyresong', icon: '🔥', desc: 'Stronger flame on one enemy. May set them ablaze.',
     cost: 9, baseId: 'fire', kind: 'magic', power: 2.6, target: 'one', element: 'fire',
     status: { id: 'burn', chance: 0.5 } },
-  { id: 'firaga',  name: 'Firaga',  icon: '🔥', desc: 'An inferno on all enemies.',
+  { id: 'firaga',  name: 'Infernal Knell', icon: '🔥', desc: 'An inferno on all enemies.',
     cost: 22, baseId: 'fira', kind: 'magic', power: 2.4, target: 'all', element: 'fire' },
 
-  { id: 'ice',       name: 'Ice',       icon: '❄️', desc: 'Freezing blast on one enemy.',
+  { id: 'ice',       name: 'Frost',     icon: '❄️', desc: 'Freezing blast on one enemy.',
     cost: 5, kind: 'magic', power: 1.9, target: 'one', element: 'ice' },
-  { id: 'blizzara',  name: 'Blizzara',  icon: '❄️', desc: 'Cutting ice on one enemy. May freeze them.',
+  { id: 'blizzara',  name: 'Hoarwave',  icon: '❄️', desc: 'Cutting ice on one enemy. May freeze them.',
     cost: 10, baseId: 'ice', kind: 'magic', power: 2.8, target: 'one', element: 'ice',
     status: { id: 'freeze', chance: 0.4 } },
-  { id: 'blizzaga',  name: 'Blizzaga',  icon: '❄️', desc: 'Polar storm on all enemies.',
+  { id: 'blizzaga',  name: 'Heartfrost', icon: '❄️', desc: 'Polar storm on all enemies.',
     cost: 24, baseId: 'blizzara', kind: 'magic', power: 2.5, target: 'all', element: 'ice' },
 
-  { id: 'thunder',   name: 'Thunder',   icon: '⚡', desc: 'Strikes all enemies with lightning.',
+  { id: 'thunder',   name: 'Spark',     icon: '⚡', desc: 'Strikes all enemies with lightning.',
     cost: 8, kind: 'magic', power: 1.4, target: 'all', element: 'thunder' },
-  { id: 'thundara',  name: 'Thundara',  icon: '⚡', desc: 'Twin bolt on all enemies. May stun.',
+  { id: 'thundara',  name: 'Skyrend',   icon: '⚡', desc: 'Twin bolt on all enemies. May stun.',
     cost: 14, baseId: 'thunder', kind: 'magic', power: 2.1, target: 'all', element: 'thunder',
     status: { id: 'stun', chance: 0.3 } },
-  { id: 'thundaga',  name: 'Thundaga',  icon: '⚡', desc: 'Heaven-splitting bolt.',
+  { id: 'thundaga',  name: 'Storm Crown', icon: '⚡', desc: 'Heaven-splitting bolt.',
     cost: 28, baseId: 'thundara', kind: 'magic', power: 3.2, target: 'all', element: 'thunder' },
 
   // ---- WATER line ---------------------------------------------------------
-  { id: 'water',    name: 'Water',    icon: '💧', desc: 'A crashing wave on one enemy.',
+  { id: 'water',    name: 'Tideshot', icon: '💧', desc: 'A crashing wave on one enemy.',
     cost: 5, kind: 'magic', power: 1.8, target: 'one', element: 'water' },
-  { id: 'watera',   name: 'Watera',   icon: '💧', desc: 'A drowning pillar. May stun the breath out of one enemy.',
+  { id: 'watera',   name: 'Tidesurge', icon: '💧', desc: 'A drowning pillar. May stun the breath out of one enemy.',
     cost: 11, baseId: 'water', kind: 'magic', power: 2.7, target: 'one', element: 'water',
     status: { id: 'stun', chance: 0.35 } },
-  { id: 'waterga',  name: 'Waterga',  icon: '💧', desc: 'A tidal surge against all enemies.',
+  { id: 'waterga',  name: 'Drowned Anthem', icon: '💧', desc: 'A tidal surge against all enemies.',
     cost: 24, baseId: 'watera', kind: 'magic', power: 2.5, target: 'all', element: 'water' },
 
   // ---- DARK / BLIGHT line -------------------------------------------------
-  { id: 'blight',   name: 'Blight',   icon: '🕳️', desc: 'A creeping shadow drains one enemy.',
+  { id: 'blight',   name: 'Shadowveil', icon: '🕳️', desc: 'A creeping shadow drains one enemy.',
     cost: 5, kind: 'magic', power: 1.8, target: 'one', element: 'dark' },
-  { id: 'blighta',  name: 'Blighta',  icon: '🕳️', desc: 'Deepening rot — may lull one enemy into uneasy sleep.',
+  { id: 'blighta',  name: 'Voidsong', icon: '🕳️', desc: 'Deepening rot — may lull one enemy into uneasy sleep.',
     cost: 11, baseId: 'blight', kind: 'magic', power: 2.7, target: 'one', element: 'dark',
     status: { id: 'sleep', chance: 0.30 } },
-  { id: 'blightga', name: 'Blightga', icon: '🕳️', desc: 'A bloom of unmaking on all enemies.',
+  { id: 'blightga', name: 'Sundering Knell', icon: '🕳️', desc: 'A bloom of unmaking on all enemies.',
     cost: 25, baseId: 'blighta', kind: 'magic', power: 2.5, target: 'all', element: 'dark' },
 
   // ---- NATURE / THORN line ------------------------------------------------
-  { id: 'thorn',    name: 'Thorn',    icon: '🌵', desc: 'A bramble lances one enemy.',
+  { id: 'thorn',    name: 'Bramble',  icon: '🌵', desc: 'A bramble lances one enemy.',
     cost: 4, kind: 'magic', power: 1.7, target: 'one', element: 'nature' },
-  { id: 'thornra',  name: 'Thornra',  icon: '🌵', desc: 'A thorned vine wraps one enemy. Often poisons.',
+  { id: 'thornra',  name: 'Briarsong', icon: '🌵', desc: 'A thorned vine wraps one enemy. Often poisons.',
     cost: 10, baseId: 'thorn', kind: 'magic', power: 2.6, target: 'one', element: 'nature',
     status: { id: 'poison', chance: 0.40 } },
-  { id: 'thornga',  name: 'Thornga',  icon: '🌵', desc: 'A grove of unblooming briars erupts beneath all enemies.',
+  { id: 'thornga',  name: 'Worldroot', icon: '🌵', desc: 'A grove of unblooming briars erupts beneath all enemies.',
     cost: 23, baseId: 'thornra', kind: 'magic', power: 2.5, target: 'all', element: 'nature' },
 
   // ---- HOLY line ----------------------------------------------------------
-  { id: 'holy',     name: 'Holy',     icon: '☀️', desc: 'A lance of pure light on one enemy.',
+  { id: 'holy',     name: 'Sunlight', icon: '☀️', desc: 'A lance of pure light on one enemy.',
     cost: 7, kind: 'magic', power: 2.1, target: 'one', element: 'holy' },
-  { id: 'holyra',   name: 'Holyra',   icon: '☀️', desc: 'A pillar of dawn-light on one enemy.',
+  { id: 'holyra',   name: 'Dawnsong', icon: '☀️', desc: 'A pillar of dawn-light on one enemy.',
     cost: 15, baseId: 'holy', kind: 'magic', power: 3.0, target: 'one', element: 'holy' },
-  { id: 'holyga',   name: 'Holyga',   icon: '☀️', desc: 'A burning sunrise across all enemies.',
+  { id: 'holyga',   name: 'Pillar of Dawn', icon: '☀️', desc: 'A burning sunrise across all enemies.',
     cost: 30, baseId: 'holyra', kind: 'magic', power: 2.8, target: 'all', element: 'holy' },
 
   // ---- POISON / BIO line --------------------------------------------------
-  { id: 'bio',      name: 'Bio',      icon: '🧪', desc: 'A spill of corrosive bile on one enemy.',
+  { id: 'bio',      name: 'Toxin',    icon: '🧪', desc: 'A spill of corrosive bile on one enemy.',
     cost: 5, kind: 'magic', power: 1.7, target: 'one', element: 'poison',
     status: { id: 'poison', chance: 0.50 } },
-  { id: 'biora',    name: 'Biora',    icon: '🧪', desc: 'A heavier dose of bile — almost always poisons.',
+  { id: 'biora',    name: 'Venomwave', icon: '🧪', desc: 'A heavier dose of bile — almost always poisons.',
     cost: 12, baseId: 'bio', kind: 'magic', power: 2.6, target: 'one', element: 'poison',
     status: { id: 'poison', chance: 0.65 } },
-  { id: 'bioga',    name: 'Bioga',    icon: '🧪', desc: 'A miasma washes over all enemies.',
+  { id: 'bioga',    name: 'Plaguebloom', icon: '🧪', desc: 'A miasma washes over all enemies.',
     cost: 26, baseId: 'biora', kind: 'magic', power: 2.4, target: 'all', element: 'poison',
     status: { id: 'poison', chance: 0.40 } },
 
   // ---- ENDGAME NON-ELEMENTAL ---------------------------------------------
   // These four bypass every elemental weak/resist/immune (element 'nonelemental').
-  { id: 'flare',    name: 'Flare',    icon: '🌟', desc: 'A silent star bursts on one enemy. Pure non-elemental destruction.',
+  { id: 'flare',    name: 'Soulburn', icon: '🌟', desc: 'A silent star bursts on one enemy. Pure non-elemental destruction.',
     cost: 36, kind: 'magic', power: 5.5, target: 'one', element: 'nonelemental' },
-  { id: 'ultima',   name: 'Ultima',   icon: '💠', desc: 'The unwriting. Annihilates all enemies in non-elemental light.',
+  { id: 'ultima',   name: 'Aether-Knell', icon: '💠', desc: 'The unwriting. Annihilates all enemies in non-elemental light.',
     cost: 60, kind: 'magic', power: 4.5, target: 'all', element: 'nonelemental' },
-  { id: 'meteor',   name: 'Meteor',   icon: '☄️', desc: 'Calls down burning rock from the sky on all enemies.',
+  { id: 'meteor',   name: 'Star-Knell', icon: '☄️', desc: 'Calls down burning rock from the sky on all enemies.',
     cost: 48, kind: 'magic', power: 4.8, target: 'all', element: 'nonelemental' },
   { id: 'osmose',   name: 'Osmose',   icon: '🔗', desc: 'Drain MP from one enemy. The caster gains what is taken.',
     cost: 0, kind: 'drainMp', power: 30, target: 'one' },
 
   // ---- WHITE magic --------------------------------------------------------
-  { id: 'heal',  name: 'Heal',  icon: '✨', desc: 'Restores HP to one ally.',
+  { id: 'heal',  name: 'Soothe', icon: '✨', desc: 'Restores HP to one ally.',
     cost: 5, kind: 'heal', power: 28, target: 'one' },
   { id: 'renew', name: 'Renew', icon: '🌟', desc: 'Heavily restores HP to one ally.',
     cost: 10, baseId: 'heal', kind: 'heal', power: 80, target: 'one' },
-  { id: 'cure',  name: 'Cure',  icon: '🌿', desc: 'Restores moderate HP to all allies.',
+  { id: 'cure',  name: 'Solace', icon: '🌿', desc: 'Restores moderate HP to all allies.',
     cost: 12, kind: 'heal', power: 30, target: 'all' },
-  { id: 'curaga', name: 'Curaga', icon: '🌟', desc: 'Greatly restores HP to all allies.',
+  { id: 'curaga', name: 'Lifesong', icon: '🌟', desc: 'Greatly restores HP to all allies.',
     cost: 26, baseId: 'cure', kind: 'heal', power: 90, target: 'all' },
   { id: 'smite', name: 'Smite', icon: '☀️', desc: 'A lance of righteous light on one enemy.',
     cost: 6, kind: 'magic', power: 1.7, target: 'one', element: 'fire' },
@@ -133,20 +133,125 @@ export const SKILLS = [
     status: { id: 'burn', chance: 0.35 } },
 
   // ---- RANGER (ranged physical) ------------------------------------------
+  // Damage line: aimedShot → pierceShot → snipe (single target) and
+  // volley → multishot → hailstorm (AoE). Multishot now carries `hits: 2`
+  // so its identity is multi-hit AoE, not "volley but bigger numbers".
   { id: 'aimedShot',  name: 'Aimed Shot',  icon: '🏹', desc: 'A precise shot at one enemy.',
     cost: 3, kind: 'attack', power: 1.7, target: 'one', element: 'phys' },
   { id: 'volley',     name: 'Volley',      icon: '🏹', desc: 'A spray of arrows on all enemies.',
     cost: 7, kind: 'attack', power: 1.0, target: 'all', element: 'phys' },
   { id: 'pierceShot', name: 'Pierce Shot', icon: '🎯', desc: 'Punches through armor on one enemy.',
     cost: 9, baseId: 'aimedShot', kind: 'attack', power: 2.4, target: 'one', element: 'phys', pierce: 0.5 },
-  { id: 'multishot',  name: 'Multishot',   icon: '🏹', desc: 'Rapid fire across all enemies.',
-    cost: 18, baseId: 'volley', kind: 'attack', power: 1.6, target: 'all', element: 'phys' },
+  { id: 'multishot',  name: 'Multishot',   icon: '🏹', desc: 'Rapid fire — two arrows across all enemies.',
+    cost: 18, baseId: 'volley', kind: 'attack', power: 0.9, target: 'all', element: 'phys', hits: 2 },
   { id: 'snipe',      name: 'Snipe',       icon: '🎯', desc: 'A killing shot. Massive damage.',
     cost: 22, baseId: 'pierceShot', kind: 'attack', power: 3.4, target: 'one', element: 'phys', pierce: 0.5 },
   { id: 'hailstorm',  name: 'Arrow Hailstorm', icon: '🏹', desc: 'A killing rain of arrows on all enemies.',
     cost: 26, baseId: 'multishot', kind: 'attack', power: 2.2, target: 'all', element: 'phys' },
-  { id: 'aimedVolley', name: 'Aimed Volley',    icon: '🎯', desc: 'A precise volley striking each enemy.',
-    cost: 20, baseId: 'volley', kind: 'attack', power: 1.8, target: 'all', element: 'phys' },
+
+  // ---- RANGER Bowcraft lane — status + utility, the toolkit the class
+  // was missing. Every other class had at least one status/buff/debuff;
+  // the Ranger now gets four status arrows + one party utility.
+  { id: 'poisonArrow',  name: 'Poison Arrow', icon: '🐍', desc: 'Tipped shot — light damage + applies Poison.',
+    cost: 4, kind: 'attack', power: 1.2, target: 'one', element: 'phys',
+    status: { id: 'poison', chance: 1.0 } },
+  { id: 'snareShot',    name: 'Snare Shot',   icon: '🪢', desc: "Pins a leg — applies Slow on one enemy.",
+    cost: 4, kind: 'attack', power: 1.0, target: 'one', element: 'phys',
+    status: { id: 'slow', chance: 1.0 } },
+  { id: 'stunningVolley', name: 'Stunning Volley', icon: '🌀', desc: 'A spray of arrows — 35% Stun chance on each.',
+    cost: 8, kind: 'attack', power: 0.7, target: 'all', element: 'phys',
+    status: { id: 'stun', chance: 0.35 } },
+  { id: 'markedTarget', name: 'Marked Target', icon: '🎯', desc: 'Marks one foe — applies Cracked Armor (-30% DEF).',
+    cost: 5, kind: 'attack', power: 0.2, target: 'one', element: 'phys',
+    status: { id: 'crackedArmor', chance: 1.0 } },
+  { id: 'smokescreen',  name: 'Smokescreen',  icon: '💨', desc: 'Smoke pellet — Haste on all party members for 4 turns.',
+    cost: 8, kind: 'buff', target: 'all',
+    buffStatus: { id: 'haste', duration: 4 } },
+
+  // ---- STEP-3 ENDGAME ADDITIONS (Lv 33-50) =================================
+  // Spans every class's late-game so player keeps unlocking skills through
+  // the back half of the playthrough. Each uses an existing mechanical role
+  // (status apply / damage tier / heal+buff / passive stack) — no new system
+  // code required for these (Protect/Shell add a `damageMult` status kind,
+  // Phoenix Down uses the `revive: true` flag on heal kind).
+
+  // ---- FIGHTER endgame -----------------------------------------------------
+  { id: 'earthshaker', name: 'Earthshaker', icon: '🪨', desc: 'Quake the field — AoE phys + Cracked Armor on all enemies.',
+    cost: 18, kind: 'attack', power: 1.5, target: 'all', element: 'phys',
+    status: { id: 'crackedArmor', chance: 1.0 } },
+  { id: 'lastStand', name: 'Last Stand', icon: '🏛️', desc: '+30 max HP, +6 DEF.',
+    cost: 0, kind: 'passive', target: 'self', passive: { stats: { maxHp: 30, def: 6 } } },
+  { id: 'cataclysmicSlam', name: 'Cataclysmic Slam', icon: '💥', desc: 'A world-rending strike — AoE phys with 35% Stun chance per target.',
+    cost: 24, kind: 'attack', power: 2.6, target: 'all', element: 'phys',
+    status: { id: 'stun', chance: 0.35 } },
+  { id: 'worldbreaker', name: 'Worldbreaker', icon: '⚔️', desc: 'The final blow — devastating single-target damage that ignores most armor.',
+    cost: 28, baseId: 'crusher', kind: 'attack', power: 4.5, target: 'one', element: 'phys', pierce: 0.6 },
+  { id: 'adamantRoar', name: 'Adamant Roar', icon: '🦁', desc: 'A defiant cry — Haste on all allies + restores 60 HP each.',
+    cost: 20, kind: 'buff', target: 'all',
+    buffStatus: { id: 'haste', duration: 5 }, healAmount: 60 },
+
+  // ---- BLACK MAGE endgame --------------------------------------------------
+  { id: 'triDisaster', name: 'Trinity Burst', icon: '🌀', desc: 'Ember, frost, and spark in a single chant — triple-element AoE.',
+    cost: 32, kind: 'magic', power: 1.8, target: 'all',
+    element: 'nonelemental', elements: ['fire', 'ice', 'thunder'] },
+  { id: 'mindsApex', name: "Mind's Apex", icon: '🔮', desc: '+35 max MP, +8 MAG.',
+    cost: 0, baseId: 'mindsEye', kind: 'passive', target: 'self', passive: { stats: { maxMp: 35, mag: 8 } } },
+
+  // ---- WHITE MAGE endgame --------------------------------------------------
+  // Blessing → Hymn of Light: single-target then party regen, mirrors the
+  // heal → cure pattern.
+  { id: 'blessingOfRenewal', name: 'Blessing of Renewal', icon: '🌱', desc: 'Regen on one ally for 5 turns.',
+    cost: 10, kind: 'buff', target: 'one',
+    buffStatus: { id: 'regen', duration: 5 } },
+  { id: 'hymnOfLight', name: 'Hymn of Light', icon: '🎼', desc: 'A sustained chord of healing — Regen on all allies for 6 turns.',
+    cost: 22, baseId: 'blessingOfRenewal', kind: 'buff', target: 'all',
+    buffStatus: { id: 'regen', duration: 6 } },
+  // Protect / Shell — damage-reduction buffs. New `damageMult` status kind.
+  { id: 'protect', name: 'Protect', icon: '🛡️', desc: 'Halves incoming physical damage on one ally for 4 turns.',
+    cost: 8, kind: 'buff', target: 'one',
+    buffStatus: { id: 'protect', duration: 4 } },
+  { id: 'protectga', name: 'Protectga', icon: '🛡️', desc: 'Protect on all party members — 50% phys reduction, 5 turns.',
+    cost: 22, baseId: 'protect', kind: 'buff', target: 'all',
+    buffStatus: { id: 'protect', duration: 5 } },
+  { id: 'shell', name: 'Shell', icon: '🔷', desc: 'Halves incoming magical damage on one ally for 4 turns.',
+    cost: 8, kind: 'buff', target: 'one',
+    buffStatus: { id: 'shell', duration: 4 } },
+  { id: 'shellga', name: 'Shellga', icon: '🔷', desc: 'Shell on all party members — 50% magic reduction, 5 turns.',
+    cost: 22, baseId: 'shell', kind: 'buff', target: 'all',
+    buffStatus: { id: 'shell', duration: 5 } },
+  { id: 'massCure', name: 'Mass Cure', icon: '✨', desc: 'A great wash of light — heavy full-party heal.',
+    cost: 24, baseId: 'curaga', kind: 'heal', power: 130, target: 'all' },
+  { id: 'sanctuaryBell', name: 'Sanctuary Bell', icon: '🔔', desc: 'A ringing peal cleanses all negative statuses from the entire party.',
+    cost: 28, baseId: 'purify', kind: 'cleanse', target: 'all' },
+  { id: 'phoenixDown', name: 'Soul Tether', icon: '🪶', desc: 'Revive one fallen ally to full HP.',
+    cost: 30, kind: 'heal', power: 9999, target: 'one', revive: true },
+  { id: 'pillarOfJudgement', name: 'Pillar of Judgement', icon: '☀️', desc: 'The final holy column descends on all foes.',
+    cost: 35, baseId: 'holyga', kind: 'magic', power: 3.6, target: 'all', element: 'holy' },
+
+  // ---- RANGER endgame ------------------------------------------------------
+  { id: 'huntersEye', name: "Hunter's Eye", icon: '🦅', desc: '+6 ATK, +3 SPD.',
+    cost: 0, baseId: 'lethalPrec', kind: 'passive', target: 'self', passive: { stats: { atk: 6, spd: 3 } } },
+  { id: 'phantomVolley', name: 'Phantom Volley', icon: '🏹', desc: 'A ghostly storm — four arrows on each enemy.',
+    cost: 22, baseId: 'hailstorm', kind: 'attack', power: 0.9, target: 'all', element: 'phys', hits: 4 },
+  { id: 'deathMark', name: 'Death Mark', icon: '☠️', desc: 'Marks one foe — applies Cracked Armor, Poison, and Slow at once.',
+    cost: 8, baseId: 'markedTarget', kind: 'attack', power: 0.3, target: 'one', element: 'phys',
+    status: { id: 'crackedArmor', chance: 1.0 },
+    extraStatuses: [{ id: 'poison', chance: 1.0 }, { id: 'slow', chance: 1.0 }] },
+  { id: 'soulPierce', name: 'Soul Pierce', icon: '🎯', desc: 'A shaft that finds the heart through any armor.',
+    cost: 28, baseId: 'snipe', kind: 'attack', power: 4.5, target: 'one', element: 'phys', pierce: 0.7 },
+  { id: 'hawksEmbrace', name: "Hawk's Embrace", icon: '🦅', desc: 'Hawk-sight on all party members — Haste for 6 turns.',
+    cost: 14, baseId: 'smokescreen', kind: 'buff', target: 'all',
+    buffStatus: { id: 'haste', duration: 6 } },
+
+  // ---- CAL (chapter-1 guest hunter) — bespoke knife skills ----------------
+  // Tactical roles distinct from Fighter line: cheap reliable single-target
+  // finisher with pierce (Throat Strike), and a cheap slow-applier so the
+  // player can split focus across the two wolflings (Hamstring).
+  { id: 'throatStrike', name: 'Throat Strike', icon: '🔪', desc: 'Lunge for the throat — punches through armor.',
+    cost: 5, kind: 'attack', power: 2.4, target: 'one', element: 'phys', pierce: 0.4 },
+  { id: 'hamstring',    name: 'Hamstring',    icon: '🩸', desc: "Cuts the wolf's hind tendon — slows its ATB.",
+    cost: 4, kind: 'attack', power: 1.3, target: 'one', element: 'phys',
+    status: { id: 'slow', chance: 1.0 } },
 
   // ---- CLASS passives -----------------------------------------------------
   { id: 'ironSkin',      name: 'Iron Skin',       icon: '🛡️', desc: '+4 DEF.',
@@ -171,10 +276,10 @@ export const SKILLS = [
     cost: 0, kind: 'passive', target: 'self', passive: { stats: { maxMp: 15, mag: 3 } } },
   { id: 'divineGrace',   name: 'Divine Grace',    icon: '✨', desc: '+30 max MP, +6 MAG.',
     cost: 0, baseId: 'meditate', kind: 'passive', target: 'self', passive: { stats: { maxMp: 30, mag: 6 } } },
-  { id: 'swiftness',     name: 'Swiftness',       icon: '💨', desc: '+3 SPD.',
-    cost: 0, kind: 'passive', target: 'self', passive: { stats: { spd: 3 } } },
-  { id: 'eagleEye',      name: 'Eagle Eye',       icon: '👁️', desc: '+5 SPD, +4 ATK.',
-    cost: 0, baseId: 'swiftness', kind: 'passive', target: 'self', passive: { stats: { spd: 5, atk: 4 } } },
+  { id: 'swiftness',     name: 'Swiftness',       icon: '💨', desc: '+2 SPD.',
+    cost: 0, kind: 'passive', target: 'self', passive: { stats: { spd: 2 } } },
+  { id: 'eagleEye',      name: 'Eagle Eye',       icon: '👁️', desc: '+3 SPD, +4 ATK.',
+    cost: 0, baseId: 'swiftness', kind: 'passive', target: 'self', passive: { stats: { spd: 3, atk: 4 } } },
   { id: 'sentinel',      name: 'Sentinel',        icon: '🛡️', desc: '+6 DEF, +25 max HP.',
     cost: 0, kind: 'passive', target: 'self', passive: { stats: { def: 6, maxHp: 25 } } },
   { id: 'ironBulwark',   name: 'Iron Bulwark',    icon: '🛡️', desc: '+8 DEF, +30 max HP.',
@@ -191,10 +296,8 @@ export const SKILLS = [
     cost: 0, kind: 'passive', target: 'self', passive: { stats: { def: 5 } } },
   { id: 'sanctuary',     name: 'Sanctuary',       icon: '✨', desc: '+30 max MP, +4 DEF.',
     cost: 0, baseId: 'wall', kind: 'passive', target: 'self', passive: { stats: { maxMp: 30, def: 4 } } },
-  { id: 'hawkeye',       name: 'Hawk Eye',        icon: '🦅', desc: '+6 ATK.',
-    cost: 0, kind: 'passive', target: 'self', passive: { stats: { atk: 6 } } },
-  { id: 'tracker',       name: 'Tracker\'s Step', icon: '👣', desc: '+4 SPD.',
-    cost: 0, kind: 'passive', target: 'self', passive: { stats: { spd: 4 } } },
+  // hawkeye + tracker removed — redundant with eagleEye + swiftness (same
+  // pure stat-stick role). Their tree slots are now used by Bowcraft skills.
 
   // ---- FUSION COMBO SKILLS (granted by specific gem combinations) --------
   { id: 'acidBloom', name: 'Acid Bloom', icon: '🟢',

@@ -418,12 +418,14 @@ function drawWraith(ctx, e) {
   ctx.fill();
   ctx.restore();
 
-  // Trailing ribbons (sub-bodies behind)
+  // Trailing ribbons (sub-bodies behind). Save/restore the alpha so the
+  // caller's globalAlpha (used for death fade) survives this block.
+  const baseAlpha = ctx.globalAlpha;
   for (let i = 1; i <= 3; i++) {
     const ribbonR = r * (1 - i * 0.2);
     const offsetY = wob + i * r * 0.15;
     ctx.fillStyle = p.shade;
-    ctx.globalAlpha = 0.4 / i;
+    ctx.globalAlpha = baseAlpha * (0.4 / i);
     ctx.beginPath();
     ctx.moveTo(0, -ribbonR + offsetY);
     ctx.bezierCurveTo(ribbonR * 1.1, -ribbonR * 0.4 + offsetY, ribbonR * 0.9, ribbonR * 0.6 + offsetY, ribbonR * 0.4, ribbonR + offsetY);
@@ -431,7 +433,7 @@ function drawWraith(ctx, e) {
     ctx.bezierCurveTo(-ribbonR * 0.9, ribbonR * 0.6 + offsetY, -ribbonR * 1.1, -ribbonR * 0.4 + offsetY, 0, -ribbonR + offsetY);
     ctx.closePath();
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = baseAlpha;
   }
 
   // Body — wispy with frayed edges
@@ -455,13 +457,13 @@ function drawWraith(ctx, e) {
   ctx.closePath();
   ctx.fill(); ctx.stroke();
 
-  // Skull face hint
+  // Skull face hint — multiply with caller alpha so the death fade carries.
   ctx.fillStyle = p.skull;
-  ctx.globalAlpha = 0.55;
+  ctx.globalAlpha = baseAlpha * 0.55;
   ctx.beginPath();
   ctx.arc(0, -r * 0.25 + wob, r * 0.4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = baseAlpha;
   // Hollow eye sockets with glow
   ctx.shadowColor = p.eye; ctx.shadowBlur = 12;
   ctx.fillStyle = p.eye;
@@ -1176,29 +1178,57 @@ const WARDEN_PALETTE = {
 
 function drawWarden(ctx, e) {
   const r = e.radius;
-  const wob = Math.sin(e.t * 2) * 4;
-  const fragPhase = e.t * 0.6;
+  // Phase-aware mutations:
+  //   P1: 5 shards, white eyes, slow orbit, calm aura
+  //   P2: 7 shards, faster orbit, eyes red-tinted, more chaotic wobble
+  //   P3: 9 shards orbiting irregularly, all-red eyes, jagged extra fragments
+  //       drifting from the core, violent aura pulse
+  const phase = e._phase || 1;
+  const shardCount = phase === 3 ? 9 : phase === 2 ? 7 : 5;
+  const orbitSpeed = phase === 3 ? 1.4 : phase === 2 ? 0.95 : 0.6;
+  const eyeColor = phase === 3 ? '#ff5a5a'
+                 : phase === 2 ? '#ffb070' : '#ffffff';
+  const auraStrength = phase === 3 ? 0.85 : phase === 2 ? 0.70 : 0.55;
+  const wobAmp = phase === 3 ? 7 : phase === 2 ? 5 : 4;
+  const wob = Math.sin(e.t * (phase === 3 ? 3.2 : 2)) * wobAmp;
+  const fragPhase = e.t * orbitSpeed;
   const p = e.palette || WARDEN_PALETTE;
 
-  // Big outer aura
+  // Big outer aura — intensifies with phase
   ctx.save();
   const aura = ctx.createRadialGradient(0, wob, 0, 0, wob, r * 2.2);
-  aura.addColorStop(0, 'rgba(170,80,255,0.55)');
-  aura.addColorStop(0.5, 'rgba(120,60,200,0.28)');
+  const aHi = Math.round(auraStrength * 255);
+  aura.addColorStop(0, `rgba(170,80,255,${auraStrength})`);
+  aura.addColorStop(0.5, `rgba(120,60,200,${auraStrength * 0.5})`);
   aura.addColorStop(1, 'rgba(60,30,120,0)');
   ctx.fillStyle = aura;
   ctx.beginPath();
   ctx.arc(0, wob, r * 2.2, 0, Math.PI * 2);
   ctx.fill();
+  // P3: add a violent red-violet pulse halo on top of the standard aura
+  if (phase === 3) {
+    const pulse = 0.5 + 0.5 * Math.sin(e.t * 5);
+    const halo = ctx.createRadialGradient(0, wob, r * 1.2, 0, wob, r * 2.4);
+    halo.addColorStop(0, `rgba(255,80,120,0)`);
+    halo.addColorStop(0.5, `rgba(255,80,120,${0.18 + pulse * 0.18})`);
+    halo.addColorStop(1, `rgba(255,80,120,0)`);
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, wob, r * 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 
-  // Chains of violet light linking shards to the core
+  // Chains of violet light linking shards to the core. In P3 the chains
+  // start to break — only every other shard is connected, the rest float free.
   ctx.save();
   ctx.strokeStyle = 'rgba(220,180,255,0.55)';
   ctx.lineWidth = 1.5;
   ctx.shadowColor = p.glow; ctx.shadowBlur = 10;
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 + fragPhase;
+  for (let i = 0; i < shardCount; i++) {
+    // P3: skip every other chain so half the shards drift unbound.
+    if (phase === 3 && (i % 2 === 1)) continue;
+    const a = (i / shardCount) * Math.PI * 2 + fragPhase;
     const x1 = Math.cos(a) * r * 0.3;
     const y1 = Math.sin(a) * r * 0.3 + wob;
     const x2 = Math.cos(a) * r * 0.95;
@@ -1213,15 +1243,17 @@ function drawWarden(ctx, e) {
   }
   ctx.restore();
 
-  // Five floating jagged shards
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 + fragPhase;
-    const dist = r * (0.85 + Math.sin(e.t * 1.5 + i) * 0.06);
+  // Floating jagged shards — count + speed scales with phase
+  for (let i = 0; i < shardCount; i++) {
+    const a = (i / shardCount) * Math.PI * 2 + fragPhase;
+    // P2+ shards orbit at irregular distance for a more chaotic silhouette.
+    const distJitter = phase >= 2 ? Math.sin(e.t * 2.4 + i * 1.7) * 0.12 : 0.06;
+    const dist = r * (0.85 + Math.sin(e.t * 1.5 + i) * distJitter);
     const fx = Math.cos(a) * dist;
     const fy = Math.sin(a) * dist + wob;
     ctx.save();
     ctx.translate(fx, fy);
-    ctx.rotate(a + e.t * 0.6);
+    ctx.rotate(a + e.t * orbitSpeed);
     const grad = ctx.createLinearGradient(0, -r * 0.32, 0, r * 0.32);
     grad.addColorStop(0, p.shard);
     grad.addColorStop(1, p.edge);
@@ -1237,6 +1269,31 @@ function drawWarden(ctx, e) {
     ctx.closePath();
     ctx.fill(); ctx.stroke();
     ctx.restore();
+  }
+  // P3: jagged extra fragments drifting just outside the core — debris from
+  // a self-tearing form. Visually distinct from the orbiting shards.
+  if (phase === 3) {
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + e.t * 0.3;
+      const dist = r * (1.20 + Math.sin(e.t * 1.8 + i) * 0.08);
+      const fx = Math.cos(a) * dist;
+      const fy = Math.sin(a) * dist + wob;
+      ctx.save();
+      ctx.translate(fx, fy);
+      ctx.rotate(a * 1.5 + e.t * 0.4);
+      ctx.fillStyle = '#ff5a8a';
+      ctx.strokeStyle = '#3a0a1a';
+      ctx.lineWidth = 1;
+      ctx.shadowColor = '#ff5a8a'; ctx.shadowBlur = 7;
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.10);
+      ctx.lineTo(r * 0.07, 0);
+      ctx.lineTo(0, r * 0.10);
+      ctx.lineTo(-r * 0.07, 0);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // Central core — irregular dark mass with multiple eyes
@@ -1259,10 +1316,10 @@ function drawWarden(ctx, e) {
   ctx.closePath();
   ctx.fill(); ctx.stroke();
 
-  // Five glowing white eyes that pulse
+  // Five glowing eyes that pulse — color shifts with phase
   const eyePulse = 0.8 + 0.2 * Math.sin(e.t * 4);
-  ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 10;
+  ctx.fillStyle = eyeColor;
+  ctx.shadowColor = eyeColor; ctx.shadowBlur = phase === 3 ? 14 : 10;
   const eyes = [
     [-r * 0.22, -r * 0.18], [r * 0.22, -r * 0.18],
     [0, -r * 0.02],
@@ -1272,6 +1329,15 @@ function drawWarden(ctx, e) {
     ctx.beginPath();
     ctx.arc(ex, ey, r * 0.07 * eyePulse, 0, Math.PI * 2);
     ctx.fill();
+  }
+  // P3: two extra eyes open on the core, suggesting the form is splintering
+  // into something with more awareness — and more hate.
+  if (phase === 3) {
+    for (const [ex, ey] of [[-r * 0.32, r * 0.05], [r * 0.32, r * 0.05]]) {
+      ctx.beginPath();
+      ctx.arc(ex, ey, r * 0.06 * eyePulse, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.shadowBlur = 0;
   ctx.restore();
@@ -1284,6 +1350,948 @@ function drawWarden(ctx, e) {
     ctx.fillStyle = `rgba(170,80,255,${0.55 * (1 - wp)})`;
     ctx.beginPath();
     ctx.arc(wx, wy, r * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---- CHAPTER 1 REDESIGN ENEMIES --------------------------------------------
+// Six bespoke chapter-1 enemies. Each gets its own silhouette — no palette
+// swaps of wolf/wraith/bat. Tier 1 reads "stray young animal", tier 2 reads
+// "pre-boss menace". Wraith variants get sleep-on-hit, beast variants get
+// might-core drops.
+
+const WOLFLING_PALETTE = {
+  body: '#7a6c5e', under: '#3a3028', ear: '#8a7a6a',
+  eye: '#7adaff', eyeGlow: '#cfeaff', fang: '#ffffff', nose: '#1a0d0d',
+};
+
+// Variant used in Cal's rescue — gaunter, darker, hungry blood-red eyes so the
+// "big ones — starving" line in his dialog has visual weight.
+const STARVING_WOLFLING_PALETTE = {
+  body: '#5a4838', under: '#2a1a10', ear: '#6a5040',
+  eye: '#ff5a5a', eyeGlow: '#ffaaaa', fang: '#f0e4c8', nose: '#0a0404',
+};
+
+function drawWolfling(ctx, e) {
+  const r = e.radius;
+  const p = e.palette || WOLFLING_PALETTE;
+  const breath = Math.sin(e.t * 2.6) * 1.4;
+  const earTwitch = Math.sin(e.t * 5.3) * 0.18;
+  const tailWag = Math.sin(e.t * 3.4) * 0.35;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.38)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.78, r * 0.88, r * 0.26, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Skinny hind leg
+  ctx.fillStyle = p.under;
+  ctx.fillRect(-r * 0.7, r * 0.42, r * 0.13, r * 0.42);
+  ctx.fillStyle = p.nose;
+  ctx.fillRect(-r * 0.72, r * 0.78, r * 0.17, r * 0.06);
+
+  // Tail — thin, wags side-to-side
+  ctx.save();
+  ctx.translate(-r * 0.7, r * 0.05);
+  ctx.rotate(-0.55 + tailWag);
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-r * 0.25, -r * 0.18, -r * 0.45, -r * 0.32);
+  ctx.lineTo(-r * 0.48, -r * 0.18);
+  ctx.quadraticCurveTo(-r * 0.2, -r * 0.05, 0, r * 0.08);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Body — lean, slightly tapered
+  const bodyGrad = ctx.createLinearGradient(0, -r * 0.3, 0, r * 0.45);
+  bodyGrad.addColorStop(0, p.body);
+  bodyGrad.addColorStop(1, p.under);
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = '#1a1208';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.ellipse(0, breath * 0.4, r * 0.78, r * 0.48, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Visible ribs — young, underfed
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+  ctx.lineWidth = 1;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.arc(i * r * 0.18, breath * 0.4 + r * 0.05, r * 0.22, 0.4, Math.PI - 0.4);
+    ctx.stroke();
+  }
+
+  // Front leg
+  ctx.fillStyle = p.under;
+  ctx.fillRect(r * 0.22, r * 0.4, r * 0.13, r * 0.44);
+  ctx.fillStyle = p.nose;
+  ctx.fillRect(r * 0.2, r * 0.78, r * 0.17, r * 0.06);
+
+  // Head — small, rounded
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#1a1208';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.55, -r * 0.2, r * 0.4, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Short snout
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.8, -r * 0.05);
+  ctx.lineTo(r * 0.98, -r * 0.02);
+  ctx.lineTo(r * 0.95, r * 0.1);
+  ctx.lineTo(r * 0.78, r * 0.08);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Nose
+  ctx.fillStyle = p.nose;
+  ctx.beginPath();
+  ctx.arc(r * 0.96, 0, r * 0.045, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Oversized ears — twitch, with pink inner
+  for (const side of [0, 1]) {
+    const baseX = r * (0.42 + side * 0.32);
+    ctx.save();
+    ctx.translate(baseX, -r * 0.4);
+    ctx.rotate(earTwitch + (side ? 0.15 : -0.15));
+    ctx.fillStyle = p.ear;
+    ctx.strokeStyle = '#1a1208';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.08, 0);
+    ctx.lineTo(0, -r * 0.55);
+    ctx.lineTo(r * 0.1, 0);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#c89aaa';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.04, -r * 0.05);
+    ctx.lineTo(0, -r * 0.42);
+    ctx.lineTo(r * 0.05, -r * 0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Big round innocent blue eye — round pupil, not slit
+  ctx.fillStyle = p.eye;
+  ctx.shadowColor = p.eyeGlow; ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.arc(r * 0.65, -r * 0.26, r * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Round black pupil
+  ctx.fillStyle = '#0a0a18';
+  ctx.beginPath();
+  ctx.arc(r * 0.66, -r * 0.25, r * 0.045, 0, Math.PI * 2);
+  ctx.fill();
+  // Catchlight — sells the "young/innocent" read
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(r * 0.64, -r * 0.28, r * 0.022, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Two small fangs, barely peeking
+  ctx.fillStyle = p.fang;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.83, r * 0.06);
+  ctx.lineTo(r * 0.85, r * 0.12);
+  ctx.lineTo(r * 0.87, r * 0.06);
+  ctx.closePath();
+  ctx.moveTo(r * 0.9, r * 0.06);
+  ctx.lineTo(r * 0.92, r * 0.12);
+  ctx.lineTo(r * 0.94, r * 0.06);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ---- BRAMBLE PUP ------------------------------------------------------------
+
+const BRAMBLEPUP_PALETTE = {
+  body: '#4a3a2a', under: '#2a1f18', bristle: '#6a3a7a',
+  bristleTip: '#5aff8a', eye: '#ff6abf', eyeGlow: '#ff8acf',
+  vine: '#3a6a3a', mist: 'rgba(170,80,200,',
+};
+
+function drawBramblePup(ctx, e) {
+  const r = e.radius;
+  const p = e.palette || BRAMBLEPUP_PALETTE;
+  const breath = Math.sin(e.t * 2.8) * 1.2;
+  const mistPulse = 0.5 + 0.5 * Math.sin(e.t * 1.7);
+
+  // Violet mist halo
+  ctx.save();
+  const halo = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 1.6);
+  halo.addColorStop(0, p.mist + (0.35 + 0.15 * mistPulse) + ')');
+  halo.addColorStop(1, p.mist + '0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Shadow
+  ctx.fillStyle = 'rgba(20,5,30,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.78, r * 0.82, r * 0.24, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hind leg with vine wrap
+  ctx.fillStyle = p.under;
+  ctx.fillRect(-r * 0.6, r * 0.42, r * 0.14, r * 0.4);
+  ctx.strokeStyle = p.vine;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.62, r * 0.46);
+  ctx.quadraticCurveTo(-r * 0.5, r * 0.55, -r * 0.46, r * 0.65);
+  ctx.quadraticCurveTo(-r * 0.6, r * 0.7, -r * 0.5, r * 0.8);
+  ctx.stroke();
+
+  // Body — squat pup shape
+  const bodyGrad = ctx.createLinearGradient(0, -r * 0.3, 0, r * 0.5);
+  bodyGrad.addColorStop(0, p.body);
+  bodyGrad.addColorStop(1, p.under);
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = '#1a0a0a';
+  ctx.lineWidth = 1.7;
+  ctx.beginPath();
+  ctx.ellipse(0, breath * 0.4, r * 0.78, r * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Spine bristles — rot-bristles down the back
+  for (let i = -3; i <= 3; i++) {
+    const bx = i * r * 0.18;
+    const bh = r * (0.35 + 0.08 * Math.sin(e.t * 2 + i));
+    ctx.fillStyle = p.bristle;
+    ctx.strokeStyle = p.bristleTip;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(bx - r * 0.05, -r * 0.35);
+    ctx.lineTo(bx, -r * 0.35 - bh);
+    ctx.lineTo(bx + r * 0.05, -r * 0.35);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // glowing tip
+    ctx.fillStyle = p.bristleTip;
+    ctx.shadowColor = p.bristleTip;
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.arc(bx, -r * 0.35 - bh, r * 0.02, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Front leg with vine wrap
+  ctx.fillStyle = p.under;
+  ctx.fillRect(r * 0.2, r * 0.42, r * 0.14, r * 0.4);
+  ctx.strokeStyle = p.vine;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.22, r * 0.46);
+  ctx.quadraticCurveTo(r * 0.34, r * 0.55, r * 0.3, r * 0.65);
+  ctx.quadraticCurveTo(r * 0.2, r * 0.7, r * 0.3, r * 0.8);
+  ctx.stroke();
+
+  // Head — small with rot-vine wreath
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#1a0a0a';
+  ctx.lineWidth = 1.7;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.52, -r * 0.18, r * 0.4, r * 0.36, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // Vine wrap around head
+  ctx.strokeStyle = p.vine;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.18, -r * 0.32);
+  ctx.quadraticCurveTo(r * 0.5, -r * 0.5, r * 0.85, -r * 0.28);
+  ctx.stroke();
+  // Tiny leaves on the vine
+  ctx.fillStyle = p.bristleTip;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.35, -r * 0.45, r * 0.06, r * 0.025, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.62, -r * 0.48, r * 0.06, r * 0.025, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Snout
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.8, -r * 0.05);
+  ctx.lineTo(r * 0.98, -r * 0.02);
+  ctx.lineTo(r * 0.95, r * 0.14);
+  ctx.lineTo(r * 0.78, r * 0.12);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // Glowing pink-rot pit eyes
+  ctx.fillStyle = p.eye;
+  ctx.shadowColor = p.eyeGlow;
+  ctx.shadowBlur = 10 + mistPulse * 4;
+  ctx.beginPath();
+  ctx.arc(r * 0.45, -r * 0.24, r * 0.08, 0, Math.PI * 2);
+  ctx.arc(r * 0.7, -r * 0.22, r * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Pit-eye black centers
+  ctx.fillStyle = '#1a0010';
+  ctx.beginPath();
+  ctx.arc(r * 0.46, -r * 0.22, r * 0.035, 0, Math.PI * 2);
+  ctx.arc(r * 0.71, -r * 0.2, r * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Sickly fangs
+  ctx.fillStyle = p.bristleTip;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.82, r * 0.1);
+  ctx.lineTo(r * 0.85, r * 0.2);
+  ctx.lineTo(r * 0.88, r * 0.1);
+  ctx.closePath();
+  ctx.moveTo(r * 0.91, r * 0.1);
+  ctx.lineTo(r * 0.94, r * 0.18);
+  ctx.lineTo(r * 0.96, r * 0.1);
+  ctx.closePath();
+  ctx.fill();
+
+  // Floating violet mist motes
+  for (let i = 0; i < 4; i++) {
+    const phase = ((e.t * 0.4 + i * 0.25) % 1);
+    const mx = -r * 0.6 + i * r * 0.4 + Math.sin(e.t + i) * r * 0.15;
+    const my = r * 0.2 - phase * r * 1.2;
+    ctx.fillStyle = `rgba(170,80,200,${0.55 * (1 - phase)})`;
+    ctx.beginPath();
+    ctx.arc(mx, my, r * 0.04, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---- CORRUPTED OTTER --------------------------------------------------------
+
+const CORRUPTOTTER_PALETTE = {
+  body: '#3a4a6a', under: '#5a7a9a', belly: '#a8c8d8',
+  glow: '#3affff', glowSoft: 'rgba(58,255,255,',
+  eye: '#cfeaff', eyeGlow: '#9adfff', whisker: '#cdd8e0', nose: '#0a0a10',
+};
+
+function drawCorruptedOtter(ctx, e) {
+  const r = e.radius;
+  const p = e.palette || CORRUPTOTTER_PALETTE;
+  const breath = Math.sin(e.t * 2.3) * 1.5;
+  const sway = Math.sin(e.t * 1.8) * 0.2;
+  const dripPulse = (e.t * 0.6) % 1;
+
+  // Cyan glow aura
+  ctx.save();
+  const halo = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 1.8);
+  halo.addColorStop(0, p.glowSoft + '0.35)');
+  halo.addColorStop(1, p.glowSoft + '0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,10,30,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.78, r * 1.0, r * 0.24, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Sinuous body — elongated S-curve
+  ctx.save();
+  ctx.rotate(sway * 0.15);
+  const bodyGrad = ctx.createLinearGradient(0, -r * 0.3, 0, r * 0.45);
+  bodyGrad.addColorStop(0, p.body);
+  bodyGrad.addColorStop(0.6, p.under);
+  bodyGrad.addColorStop(1, p.belly);
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = '#0a1020';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.9, r * 0.1 + breath * 0.3);
+  ctx.bezierCurveTo(-r * 0.7, -r * 0.4 + breath, r * 0.3, -r * 0.45 + breath, r * 0.5, -r * 0.2);
+  ctx.bezierCurveTo(r * 0.8, 0, r * 0.85, r * 0.25, r * 0.55, r * 0.4);
+  ctx.bezierCurveTo(r * 0.1, r * 0.5, -r * 0.5, r * 0.45, -r * 0.9, r * 0.1 + breath * 0.3);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+
+  // Cyan corruption glow line along spine
+  ctx.save();
+  ctx.strokeStyle = p.glow;
+  ctx.shadowColor = p.glow;
+  ctx.shadowBlur = 8;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.8, r * 0.05);
+  ctx.bezierCurveTo(-r * 0.5, -r * 0.3, r * 0.1, -r * 0.35, r * 0.45, -r * 0.15);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // Spine glow nodes
+  ctx.fillStyle = p.glow;
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4;
+    const nx = -r * 0.8 + t * r * 1.25;
+    const ny = -r * 0.05 - Math.sin(t * Math.PI) * r * 0.28;
+    const pulse = 0.6 + 0.4 * Math.sin(e.t * 2 + i);
+    ctx.shadowColor = p.glow;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(nx, ny, r * 0.04 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // Tail — long & fluid, drifts behind
+  ctx.save();
+  ctx.translate(-r * 0.85, r * 0.1);
+  ctx.rotate(-0.2 + sway);
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#0a1020';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-r * 0.4, -r * 0.05, -r * 0.7, r * 0.15);
+  ctx.quadraticCurveTo(-r * 0.4, r * 0.18, 0, r * 0.12);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Tail tip glow
+  ctx.fillStyle = p.glow;
+  ctx.shadowColor = p.glow; ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.arc(-r * 0.7, r * 0.15, r * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // Head — rounded otter face
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#0a1020';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.5, -r * 0.25, r * 0.34, r * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Snout / muzzle
+  ctx.fillStyle = p.belly;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.72, -r * 0.12, r * 0.16, r * 0.13, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#0a1020';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Nose
+  ctx.fillStyle = p.nose;
+  ctx.beginPath();
+  ctx.arc(r * 0.82, -r * 0.18, r * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Round ears (small)
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.arc(r * 0.38, -r * 0.5, r * 0.07, 0, Math.PI * 2);
+  ctx.arc(r * 0.62, -r * 0.5, r * 0.07, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Sad, downturned luminous eyes
+  ctx.fillStyle = p.eye;
+  ctx.shadowColor = p.eyeGlow; ctx.shadowBlur = 7;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.4, -r * 0.27, r * 0.07, r * 0.06, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.6, -r * 0.27, r * 0.07, r * 0.06, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Pupils — round, soft (bittersweet, not menacing)
+  ctx.fillStyle = '#0a1830';
+  ctx.beginPath();
+  ctx.arc(r * 0.4, -r * 0.26, r * 0.028, 0, Math.PI * 2);
+  ctx.arc(r * 0.6, -r * 0.26, r * 0.028, 0, Math.PI * 2);
+  ctx.fill();
+  // Catchlights
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(r * 0.39, -r * 0.28, r * 0.015, 0, Math.PI * 2);
+  ctx.arc(r * 0.59, -r * 0.28, r * 0.015, 0, Math.PI * 2);
+  ctx.fill();
+  // Sad brow arches
+  ctx.strokeStyle = '#0a1020';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.32, -r * 0.37);
+  ctx.quadraticCurveTo(r * 0.4, -r * 0.34, r * 0.46, -r * 0.36);
+  ctx.moveTo(r * 0.54, -r * 0.36);
+  ctx.quadraticCurveTo(r * 0.6, -r * 0.34, r * 0.68, -r * 0.37);
+  ctx.stroke();
+
+  // Whiskers — drifting
+  ctx.strokeStyle = p.whisker;
+  ctx.lineWidth = 0.8;
+  for (let i = -1; i <= 1; i++) {
+    const wy = -r * 0.14 + i * r * 0.04;
+    const drift = Math.sin(e.t * 1.5 + i) * r * 0.02;
+    ctx.beginPath();
+    ctx.moveTo(r * 0.78, wy);
+    ctx.quadraticCurveTo(r * 0.95, wy + drift, r * 1.05, wy + drift * 1.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(r * 0.62, wy + r * 0.02);
+    ctx.quadraticCurveTo(r * 0.45, wy + drift + r * 0.04, r * 0.32, wy + drift + r * 0.06);
+    ctx.stroke();
+  }
+
+  // Dripping cyan aether droplets
+  for (let i = 0; i < 3; i++) {
+    const phase = ((dripPulse + i * 0.33) % 1);
+    const dx = -r * 0.3 + i * r * 0.3;
+    const dy = r * 0.4 + phase * r * 0.5;
+    ctx.fillStyle = `rgba(58,255,255,${0.85 * (1 - phase)})`;
+    ctx.shadowColor = p.glow; ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.ellipse(dx, dy, r * 0.03, r * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ---- WRAITH WISP ------------------------------------------------------------
+
+const WISP_PALETTE = {
+  body: '#9a5cff', shade: '#3a1a6a', glow: 'rgba(170,120,255,',
+  eye: '#ffffff', eyeGlow: '#cfaaff', skull: '#d8c4ff', tail: '#5a2a8a',
+};
+
+function drawWraithWisp(ctx, e) {
+  const r = e.radius;
+  const p = e.palette || WISP_PALETTE;
+  const float = Math.sin(e.t * 2.4) * 5;
+  const pulse = 0.5 + 0.5 * Math.sin(e.t * 3.2);
+  const blink = (Math.sin(e.t * 1.3) > 0.95) ? 0.2 : 1;
+
+  // Outer glow aura
+  ctx.save();
+  const g = ctx.createRadialGradient(0, float, 0, 0, float, r * 1.8);
+  g.addColorStop(0, p.glow + (0.45 + 0.15 * pulse) + ')');
+  g.addColorStop(1, p.glow + '0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, float, r * 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Wispy tail — trails downward into nothing
+  ctx.save();
+  const tailGrad = ctx.createLinearGradient(0, float, 0, r * 1.4 + float);
+  tailGrad.addColorStop(0, p.tail);
+  tailGrad.addColorStop(1, 'rgba(90,42,138,0)');
+  ctx.fillStyle = tailGrad;
+  ctx.beginPath();
+  const swirl = Math.sin(e.t * 1.5) * r * 0.15;
+  ctx.moveTo(-r * 0.3, r * 0.3 + float);
+  ctx.bezierCurveTo(-r * 0.4 + swirl, r * 0.7 + float, -r * 0.2 - swirl, r * 1.0 + float, swirl * 0.5, r * 1.4 + float);
+  ctx.bezierCurveTo(r * 0.2 + swirl, r * 1.0 + float, r * 0.4 - swirl, r * 0.7 + float, r * 0.3, r * 0.3 + float);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Body — softer, smaller wraith
+  const bodyGrad = ctx.createLinearGradient(0, -r * 0.7 + float, 0, r * 0.4 + float);
+  bodyGrad.addColorStop(0, p.body);
+  bodyGrad.addColorStop(1, p.shade);
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = p.shade;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.7 + float);
+  ctx.bezierCurveTo(r * 0.85, -r * 0.3 + float, r * 0.7, r * 0.3 + float, r * 0.3, r * 0.4 + float);
+  ctx.lineTo(-r * 0.3, r * 0.4 + float);
+  ctx.bezierCurveTo(-r * 0.7, r * 0.3 + float, -r * 0.85, -r * 0.3 + float, 0, -r * 0.7 + float);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // Faint inner skull hint
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = p.skull;
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.2 + float, r * 0.32, r * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Tiny nasal cavity
+  ctx.fillStyle = p.shade;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.04, -r * 0.1 + float);
+  ctx.lineTo(r * 0.04, -r * 0.1 + float);
+  ctx.lineTo(0, r * 0.0 + float);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Two big staring eyes — round, white, dominant. Multiply blink against
+  // caller alpha so the death fade still applies.
+  const wispBaseAlpha = ctx.globalAlpha;
+  ctx.fillStyle = p.eye;
+  ctx.shadowColor = p.eyeGlow;
+  ctx.shadowBlur = 10 + pulse * 4;
+  ctx.globalAlpha = wispBaseAlpha * blink;
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.18, -r * 0.22 + float, r * 0.12, r * 0.14, 0, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.18, -r * 0.22 + float, r * 0.12, r * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = wispBaseAlpha;
+  ctx.shadowBlur = 0;
+
+  // Tiny dark pupils — the staring intensity
+  ctx.fillStyle = '#1a0033';
+  ctx.beginPath();
+  ctx.arc(-r * 0.16, -r * 0.2 + float, r * 0.03, 0, Math.PI * 2);
+  ctx.arc(r * 0.2, -r * 0.2 + float, r * 0.03, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// ---- ALPHA SCOUT ------------------------------------------------------------
+
+const ALPHASCOUT_PALETTE = {
+  body: '#4a3024', under: '#1a0d08', mane: '#9a2010',
+  eye: '#ffb43a', eyeGlow: '#ffc46a', fang: '#fff8e0',
+  claw: '#0a0408', scar: '#d4b896', stitch: '#2a1008',
+};
+
+function drawAlphaScout(ctx, e) {
+  const r = e.radius;
+  const p = e.palette || ALPHASCOUT_PALETTE;
+  const breath = Math.sin(e.t * 2.8) * 1.3;
+  const tailLash = Math.sin(e.t * 3.5) * 0.35;
+  const eyeFlare = 0.85 + 0.15 * Math.sin(e.t * 4);
+
+  // Heavy shadow — bigger beast
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.82, r * 1.1, r * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hind legs — muscular
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.7, r * 0.55, r * 0.13, r * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // Claws on hind
+  ctx.fillStyle = p.claw;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.75 + i * r * 0.06, r * 0.82);
+    ctx.lineTo(-r * 0.74 + i * r * 0.06, r * 0.94);
+    ctx.lineTo(-r * 0.71 + i * r * 0.06, r * 0.82);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Tail — bigger, lashing
+  ctx.save();
+  ctx.translate(-r * 0.92, -r * 0.05);
+  ctx.rotate(-0.3 + tailLash);
+  const tailGrad = ctx.createLinearGradient(0, 0, -r * 0.6, -r * 0.5);
+  tailGrad.addColorStop(0, p.body);
+  tailGrad.addColorStop(1, p.mane);
+  ctx.fillStyle = tailGrad;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-r * 0.4, -r * 0.35, -r * 0.65, -r * 0.55);
+  ctx.lineTo(-r * 0.72, -r * 0.32);
+  ctx.quadraticCurveTo(-r * 0.35, -r * 0.1, 0, r * 0.12);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Red tail tip
+  ctx.fillStyle = p.mane;
+  ctx.beginPath();
+  ctx.arc(-r * 0.65, -r * 0.5, r * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Body — bigger, broader
+  const bodyGrad = ctx.createLinearGradient(0, -r * 0.4, 0, r * 0.55);
+  bodyGrad.addColorStop(0, p.body);
+  bodyGrad.addColorStop(0.6, p.body);
+  bodyGrad.addColorStop(1, p.under);
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.ellipse(0, breath * 0.4, r * 1.0, r * 0.62, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Deep red mane — bigger, more pronounced
+  ctx.fillStyle = p.mane;
+  ctx.strokeStyle = '#3a0808';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.7, -r * 0.42);
+  for (let i = 0; i <= 10; i++) {
+    const x = -r * 0.7 + (i / 10) * r * 1.15;
+    const yOff = (i % 2 === 0) ? -r * 0.7 : -r * 0.52;
+    ctx.lineTo(x, yOff);
+  }
+  ctx.lineTo(r * 0.45, -r * 0.3);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Mane sheen
+  ctx.strokeStyle = '#ff6a3a';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.5, -r * 0.55);
+  ctx.lineTo(r * 0.3, -r * 0.45);
+  ctx.stroke();
+
+  // Front legs
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.32, r * 0.55, r * 0.13, r * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // Front claws
+  ctx.fillStyle = p.claw;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(r * 0.28 + i * r * 0.06, r * 0.82);
+    ctx.lineTo(r * 0.29 + i * r * 0.06, r * 0.96);
+    ctx.lineTo(r * 0.32 + i * r * 0.06, r * 0.82);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Head — bigger, meaner
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.65, -r * 0.22, r * 0.5, r * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Snout — broader, stronger
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.9, -r * 0.05);
+  ctx.lineTo(r * 1.18, -r * 0.02);
+  ctx.lineTo(r * 1.15, r * 0.15);
+  ctx.lineTo(r * 0.86, r * 0.13);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Nose
+  ctx.fillStyle = '#0a0408';
+  ctx.beginPath();
+  ctx.arc(r * 1.13, -r * 0.0, r * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+
+  // SCAR — diagonal across snout with stitches
+  ctx.strokeStyle = p.scar;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.55, -r * 0.4);
+  ctx.lineTo(r * 1.0, r * 0.05);
+  ctx.stroke();
+  // Stitches across the scar
+  ctx.strokeStyle = p.stitch;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const t = i / 5;
+    const sx = r * 0.55 + t * r * 0.45;
+    const sy = -r * 0.4 + t * r * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(sx - r * 0.05, sy - r * 0.04);
+    ctx.lineTo(sx + r * 0.05, sy + r * 0.04);
+    ctx.stroke();
+  }
+
+  // Four bared fangs in a snarl
+  ctx.fillStyle = p.fang;
+  ctx.strokeStyle = '#3a1010';
+  ctx.lineWidth = 0.8;
+  const drawFang = (x, w, h) => {
+    ctx.beginPath();
+    ctx.moveTo(x - w, r * 0.06);
+    ctx.lineTo(x, r * 0.06 + h);
+    ctx.lineTo(x + w, r * 0.06);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  };
+  drawFang(r * 0.92, r * 0.025, r * 0.18);
+  drawFang(r * 0.99, r * 0.022, r * 0.15);
+  drawFang(r * 1.06, r * 0.022, r * 0.15);
+  drawFang(r * 1.12, r * 0.025, r * 0.18);
+
+  // Ears — torn (notched)
+  ctx.fillStyle = p.body;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.55, -r * 0.5);
+  ctx.lineTo(r * 0.38, -r * 0.92);
+  ctx.lineTo(r * 0.5, -r * 0.78);
+  ctx.lineTo(r * 0.58, -r * 0.88);
+  ctx.lineTo(r * 0.72, -r * 0.6);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(r * 0.78, -r * 0.5);
+  ctx.lineTo(r * 0.85, -r * 0.88);
+  ctx.lineTo(r * 0.9, -r * 0.7);
+  ctx.lineTo(r * 1.0, -r * 0.5);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // Amber slit-pupil eye — predatory
+  ctx.fillStyle = p.eye;
+  ctx.shadowColor = p.eyeGlow;
+  ctx.shadowBlur = 10 + eyeFlare * 4;
+  ctx.beginPath();
+  ctx.arc(r * 0.78, -r * 0.3, r * 0.07 * eyeFlare, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Vertical slit pupil
+  ctx.fillStyle = '#0a0408';
+  ctx.beginPath();
+  ctx.ellipse(r * 0.78, -r * 0.3, r * 0.012, r * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Brow furrow
+  ctx.strokeStyle = '#0a0408';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.62, -r * 0.45);
+  ctx.lineTo(r * 0.85, -r * 0.36);
+  ctx.stroke();
+}
+
+// ---- WRAITH ECHO ------------------------------------------------------------
+
+const WRAITHECHO_PALETTE = {
+  body: '#4a1a8a', shade: '#1a0033', glow: 'rgba(120,60,220,',
+  eye: '#e8caff', eyeGlow: '#caa6ff', ribbon: '#3a1070',
+  inner: 'rgba(232,202,255,', crown: '#caa6ff',
+};
+
+function drawWraithEcho(ctx, e) {
+  const r = e.radius;
+  const p = e.palette || WRAITHECHO_PALETTE;
+  const float = Math.sin(e.t * 2.0) * 6;
+  const pulse = 0.5 + 0.5 * Math.sin(e.t * 2.8);
+
+  // Deep violet glow aura
+  ctx.save();
+  const g = ctx.createRadialGradient(0, float, 0, 0, float, r * 2.1);
+  g.addColorStop(0, p.glow + (0.55 + 0.2 * pulse) + ')');
+  g.addColorStop(0.6, p.glow + '0.2)');
+  g.addColorStop(1, p.glow + '0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, float, r * 2.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Three trailing ribbons behind
+  for (let i = 0; i < 3; i++) {
+    ctx.save();
+    const ribbonPhase = e.t * 0.8 + i * 1.2;
+    const rx = Math.sin(ribbonPhase) * r * 0.5;
+    const offsetY = float + r * 0.4 + i * r * 0.15;
+    ctx.fillStyle = p.ribbon;
+    ctx.globalAlpha = 0.55 - i * 0.12;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.4, offsetY);
+    ctx.bezierCurveTo(rx - r * 0.3, offsetY + r * 0.3, rx + r * 0.3, offsetY + r * 0.55, rx, offsetY + r * 0.9);
+    ctx.bezierCurveTo(rx + r * 0.3, offsetY + r * 0.55, rx - r * 0.3, offsetY + r * 0.3, r * 0.4, offsetY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Main wraith body — bigger
+  const bodyGrad = ctx.createLinearGradient(0, -r + float, 0, r * 0.5 + float);
+  bodyGrad.addColorStop(0, p.body);
+  bodyGrad.addColorStop(1, p.shade);
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = p.shade;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(0, -r + float);
+  ctx.bezierCurveTo(r * 1.2, -r * 0.5 + float, r * 1.0, r * 0.4 + float, r * 0.5, r * 0.6 + float);
+  // Frayed bottom
+  ctx.lineTo(r * 0.32, r * 0.45 + float);
+  ctx.lineTo(r * 0.15, r * 0.7 + float);
+  ctx.lineTo(0, r * 0.5 + float);
+  ctx.lineTo(-r * 0.15, r * 0.7 + float);
+  ctx.lineTo(-r * 0.32, r * 0.45 + float);
+  ctx.lineTo(-r * 0.5, r * 0.6 + float);
+  ctx.bezierCurveTo(-r * 1.0, r * 0.4 + float, -r * 1.2, -r * 0.5 + float, 0, -r + float);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // INNER Hollow-Warden silhouette — jagged crown + many eyes hint
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  // Crown spike silhouette
+  ctx.fillStyle = p.crown;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.32, -r * 0.3 + float);
+  ctx.lineTo(-r * 0.25, -r * 0.55 + float);
+  ctx.lineTo(-r * 0.15, -r * 0.35 + float);
+  ctx.lineTo(-r * 0.05, -r * 0.62 + float);
+  ctx.lineTo(r * 0.05, -r * 0.35 + float);
+  ctx.lineTo(r * 0.15, -r * 0.62 + float);
+  ctx.lineTo(r * 0.25, -r * 0.35 + float);
+  ctx.lineTo(r * 0.32, -r * 0.55 + float);
+  ctx.lineTo(r * 0.38, -r * 0.3 + float);
+  ctx.lineTo(r * 0.38, -r * 0.15 + float);
+  ctx.lineTo(-r * 0.38, -r * 0.15 + float);
+  ctx.closePath();
+  ctx.fill();
+  // Many tiny silhouette eyes
+  ctx.fillStyle = p.shade;
+  for (let i = 0; i < 6; i++) {
+    const ix = -r * 0.25 + (i % 3) * r * 0.18;
+    const iy = -r * 0.25 + Math.floor(i / 3) * r * 0.08 + float;
+    ctx.beginPath();
+    ctx.arc(ix, iy, r * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Four orbiting eye-lights
+  for (let i = 0; i < 4; i++) {
+    const ang = e.t * 1.2 + i * (Math.PI / 2);
+    const ox = Math.cos(ang) * r * 0.55;
+    const oy = Math.sin(ang) * r * 0.32 - r * 0.1 + float;
+    const eyePulse = 0.7 + 0.3 * Math.sin(e.t * 3 + i);
+    ctx.fillStyle = p.eye;
+    ctx.shadowColor = p.eyeGlow;
+    ctx.shadowBlur = 12 + eyePulse * 5;
+    ctx.beginPath();
+    ctx.arc(ox, oy, r * 0.075 * eyePulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // Tiny dark center
+    ctx.fillStyle = '#1a0033';
+    ctx.beginPath();
+    ctx.arc(ox, oy, r * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Trailing motes
+  for (let i = 0; i < 6; i++) {
+    const phase = ((e.t * 0.5 + i * 0.18) % 1);
+    const mx = Math.sin(e.t * 0.7 + i * 1.3) * r * 0.7;
+    const my = -r * 0.3 + phase * r * 1.4 + float;
+    ctx.fillStyle = `rgba(202,166,255,${0.6 * (1 - phase)})`;
+    ctx.beginPath();
+    ctx.arc(mx, my, r * 0.04, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -1326,6 +2334,61 @@ export const ENEMIES = [
     // Beasts shy from open flame.
     weak: ['fire'],
     draw: drawWolf,
+  },
+  {
+    id: 'wolfling', name: 'Wolfling', tier: 1, level: 1,
+    maxHp: 30, atk: 8, def: 2, mag: 0, spd: 8,
+    xp: 10, gold: 5,
+    drops: [
+      { kind: 'consumable', id: 'potion', chance: 0.2 },
+      { kind: 'gem', id: 'mightCore', chance: 0.08 },
+    ],
+    radius: 22, color: WOLFLING_PALETTE.body, palette: WOLFLING_PALETTE,
+    // Young pup — thin coat singes easily, but a little tougher than a slime.
+    resist: ['fire'],
+    draw: drawWolfling,
+  },
+  {
+    // Rescue-fight variant. Used in `meadow:rescueCal`. Bigger, hungrier,
+    // bites harder — the dialog calls them out as "big ones, starving" so
+    // the player should feel the difference. ~2.3x base HP, +25% ATK.
+    id: 'starvingWolfling', name: 'Starving Wolfling', tier: 1, level: 2,
+    maxHp: 175, atk: 10, def: 2, mag: 0, spd: 8,
+    xp: 18, gold: 7,
+    drops: [
+      { kind: 'consumable', id: 'potion', chance: 0.30 },
+      { kind: 'gem', id: 'mightCore', chance: 0.10 },
+    ],
+    radius: 24, color: STARVING_WOLFLING_PALETTE.body, palette: STARVING_WOLFLING_PALETTE,
+    resist: ['fire'],
+    draw: drawWolfling,
+  },
+  {
+    id: 'bramblePup', name: 'Bramble Pup', tier: 1, level: 2,
+    maxHp: 38, atk: 9, def: 3, mag: 5, spd: 7,
+    xp: 14, gold: 4,
+    drops: [
+      { kind: 'consumable', id: 'potion', chance: 0.22 },
+      { kind: 'gem', id: 'venomFang', chance: 0.06 },
+    ],
+    radius: 22, color: BRAMBLEPUP_PALETTE.body, palette: BRAMBLEPUP_PALETTE,
+    // Rot-bristles ignite; the corruption IS nature — feeds it.
+    weak: ['fire'], resist: ['nature'],
+    attackStatus: { id: 'poison', chance: 0.25 },
+    draw: drawBramblePup,
+  },
+  {
+    id: 'corruptedOtter', name: 'Corrupted Otter', tier: 1, level: 3,
+    maxHp: 42, atk: 10, def: 3, mag: 8, spd: 9,
+    xp: 16, gold: 6,
+    drops: [
+      { kind: 'consumable', id: 'potion', chance: 0.22 },
+      { kind: 'gem', id: 'wardStone', chance: 0.06 },
+    ],
+    radius: 24, color: CORRUPTOTTER_PALETTE.body, palette: CORRUPTOTTER_PALETTE,
+    // Aether-soaked river-body — thunder arcs through it; water is its medium.
+    weak: ['thunder'], resist: ['water'],
+    draw: drawCorruptedOtter,
   },
 
   // ----- TIER 2 (cave / Echoing Hollow) ----------------------------------
@@ -1375,10 +2438,23 @@ export const ENEMIES = [
     weak: ['fire'],
     draw: drawWolf,
   },
+  {
+    id: 'alphaScout', name: 'Alpha Scout', tier: 2, level: 4,
+    maxHp: 70, atk: 13, def: 4, mag: 0, spd: 10,
+    xp: 32, gold: 14,
+    drops: [
+      { kind: 'consumable', id: 'potion', chance: 1.0 },
+      { kind: 'gem', id: 'mightCore', chance: 0.3 },
+    ],
+    radius: 30, color: ALPHASCOUT_PALETTE.body, palette: ALPHASCOUT_PALETTE,
+    // Scarred pre-boss: thick pelt shrugs off ordinary flame, but no immunity.
+    resist: ['fire'],
+    draw: drawAlphaScout,
+  },
   // ----- TIER 3 (Verdant Reach) ------------------------------------------
   {
     id: 'mossback', name: 'Mossback Treant', tier: 3, level: 9,
-    maxHp: 162, atk: 23, def: 12, mag: 6, spd: 5,
+    maxHp: 181, atk: 25, def: 12, mag: 6, spd: 5,
     xp: 76, gold: 30,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 0.22 },
@@ -1392,7 +2468,7 @@ export const ENEMIES = [
   },
   {
     id: 'brambleSprite', name: 'Bramble Sprite', tier: 3, level: 8,
-    maxHp: 54, atk: 18, def: 4, spd: 14,
+    maxHp: 60, atk: 20, def: 4, spd: 14,
     xp: 60, gold: 19,
     drops: [
       { kind: 'consumable', id: 'ether', chance: 0.22 },
@@ -1406,7 +2482,7 @@ export const ENEMIES = [
   },
   {
     id: 'witheredStag', name: 'Withered Stag', tier: 3, level: 9,
-    maxHp: 130, atk: 22, def: 8, spd: 10,
+    maxHp: 146, atk: 24, def: 8, spd: 10,
     xp: 73, gold: 27,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 0.18 },
@@ -1422,7 +2498,7 @@ export const ENEMIES = [
   },
   {
     id: 'choirmoth', name: 'Choirmoth', tier: 3, level: 8,
-    maxHp: 84, atk: 17, def: 5, mag: 18, spd: 12,
+    maxHp: 94, atk: 19, def: 5, mag: 18, spd: 12,
     xp: 68, gold: 22,
     drops: [
       { kind: 'consumable', id: 'ether', chance: 0.25 },
@@ -1460,8 +2536,16 @@ export const ENEMIES = [
   // ----- BOSS (Echoing Hollow) -------------------------------------------
   {
     id: 'hollowWarden', name: 'Hollow Warden', tier: 3, level: 7, boss: true,
-    maxHp: 230, atk: 15, def: 6, mag: 13, spd: 6,
-    xp: 130, gold: 75,
+    // HP weighted toward later phases so each phase feels incrementally
+    // tougher — P1 ~25% (175), P2 ~35% (245), P3 ~40% (280). Total 700.
+    // SPD bumped from 6 → 11 so the boss actually gets turns to use its
+    // phase-locked attacks (Shard Volley, Rift Cataclysm).
+    maxHp: 700, atk: 17, def: 6, mag: 15, spd: 11,
+    // XP tuned so a Lv7 party going straight to the boss lands at Lv8 with
+    // some leftover — not vaulting to Lv9. Each party member gets the full
+    // amount (FF1-style), so 200 + a couple cave random encounters keeps
+    // them in the right bracket for chapter 2.
+    xp: 200, gold: 130,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 1.0 },
       { kind: 'gem',        id: 'wardStone', chance: 1.0 },
@@ -1472,30 +2556,53 @@ export const ENEMIES = [
     // is dark — fire and ice land as normal but nothing is super-effective.
     resist: ['phys'], immune: ['dark'],
     draw: drawWarden,
+    // Three phases — boundaries chosen so each phase has incrementally more
+    // HP than the last:
+    //   P1 (100→75%): Bound Form, ~25% of max HP. Mostly basic + Sundered.
+    //   P2 (75→40%): Fractured Form, ~35% of max HP. Adds Shard Volley.
+    //   P3 (40→0%):  Unbound Form, ~40% of max HP. Adds Rift Cataclysm.
+    // Phase transitions return a `phaseTransition` action that battle.js plays
+    // as a short cinematic (aura collapse + visual mutation + log dialog) and
+    // burns the boss's turn — the player gets a free beat to set up.
     ai(battle, self) {
-      // Phase 1 (>50% HP): mostly basic, some Sundered Strike.
-      // Phase 2 (<=50%): heavier Veil Pulse, more Sundered Strike.
-      const phase2 = self.hp / self.maxHp <= 0.5;
-      if (phase2 && !self._phaseShouted) {
-        self._phaseShouted = true;
-        battle._addLog(`The Warden's edges fracture violently!`);
+      const ratio = self.hp / self.maxHp;
+      // Phase boundary detection — take priority over normal attack rolls so
+      // the cutscene plays the first turn after the threshold is crossed.
+      if (ratio <= 0.40 && !self._p3) {
+        self._p3 = true;
+        self._phase = 3;
+        return { kind: 'phaseTransition', toPhase: 3 };
+      }
+      if (ratio <= 0.75 && !self._p2) {
+        self._p2 = true;
+        self._phase = 2;
+        return { kind: 'phaseTransition', toPhase: 2 };
       }
       const roll = Math.random();
-      if (phase2) {
-        if (roll < 0.45) return { kind: 'veilPulse' };
+      if (self._p3) {
+        // Unbound: heavy on Cataclysm + Shard Volley, less basic.
+        if (roll < 0.30) return { kind: 'riftCataclysm' };
+        if (roll < 0.60) return { kind: 'shardVolley' };
+        if (roll < 0.85) return { kind: 'sunderedStrike' };
+        return { kind: 'veilPulse' };
+      }
+      if (self._p2) {
+        // Fractured: Shard Volley enters the rotation, Veil Pulse stronger.
+        if (roll < 0.30) return { kind: 'shardVolley' };
+        if (roll < 0.55) return { kind: 'veilPulse' };
         if (roll < 0.85) return { kind: 'sunderedStrike' };
         return { kind: 'basic' };
-      } else {
-        if (roll < 0.25) return { kind: 'veilPulse' };
-        if (roll < 0.55) return { kind: 'sunderedStrike' };
-        return { kind: 'basic' };
       }
+      // Bound: original opening behavior.
+      if (roll < 0.25) return { kind: 'veilPulse' };
+      if (roll < 0.55) return { kind: 'sunderedStrike' };
+      return { kind: 'basic' };
     },
   },
   // ----- CHAPTER 2 BOSS (Bloom of Decay) ---------------------------------
   {
     id: 'bloomOfDecay', name: 'Bloom of Decay', tier: 5, level: 13, boss: true,
-    maxHp: 620, atk: 26, def: 14, mag: 22, spd: 7,
+    maxHp: 694, atk: 29, def: 14, mag: 22, spd: 7,
     xp: 480, gold: 280,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 1.0 },
@@ -1545,7 +2652,7 @@ export const ENEMIES = [
   // ----- MID-BOSS (Deep Reach) -------------------------------------------
   {
     id: 'rotcrownTreant', name: 'Rotcrown Treant', tier: 4, level: 10, boss: true,
-    maxHp: 360, atk: 22, def: 11, mag: 14, spd: 5,
+    maxHp: 403, atk: 24, def: 11, mag: 14, spd: 5,
     xp: 220, gold: 130,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 1.0 },
@@ -1601,12 +2708,43 @@ export const ENEMIES = [
     attackStatus: { id: 'sleep', chance: 0.18 },
     draw: drawWraith,
   },
+  {
+    id: 'wraithWisp', name: 'Wraith Wisp', tier: 1, level: 3,
+    maxHp: 50, atk: 11, def: 2, mag: 12, spd: 8,
+    xp: 22, gold: 8,
+    drops: [
+      { kind: 'consumable', id: 'ether', chance: 0.25 },
+      { kind: 'gem', id: 'sandmanBell', chance: 0.08 },
+    ],
+    radius: 26, color: WISP_PALETTE.body, palette: WISP_PALETTE,
+    // Lesser untethered spirit — fire and dawn-light burn it; blades phase
+    // through; ice means nothing to a thing without a body.
+    resist: ['phys'], weak: ['fire', 'holy'], immune: ['ice'],
+    attackStatus: { id: 'sleep', chance: 0.20 },
+    draw: drawWraithWisp,
+  },
+  {
+    id: 'wraithEcho', name: 'Wraith Echo', tier: 2, level: 4,
+    maxHp: 75, atk: 12, def: 3, mag: 14, spd: 9,
+    xp: 36, gold: 16,
+    drops: [
+      { kind: 'consumable', id: 'ether', chance: 1.0 },
+      { kind: 'gem', id: 'sandmanBell', chance: 0.3 },
+      { kind: 'gem', id: 'voidshard', chance: 0.15 },
+    ],
+    radius: 32, color: WRAITHECHO_PALETTE.body, palette: WRAITHECHO_PALETTE,
+    // Echo of the Hollow Warden — a wraith that learned shape. Dark spells
+    // wash off; phys still phases; fire and dawn still cut.
+    resist: ['phys', 'dark'], weak: ['fire', 'holy'], immune: ['ice'],
+    attackStatus: { id: 'sleep', chance: 0.30 },
+    draw: drawWraithEcho,
+  },
   // Tier 3 variant — a wraith that drifted out of the Echoing Hollow and
   // soaked up the Reach's corruption. Sour-green halo, deeper purple body,
   // stronger sleep on hit. Used in Deep Reach encounters.
   {
     id: 'hollowWraith', name: 'Hollow Wraith', tier: 3, level: 9,
-    maxHp: 100, atk: 19, def: 4, mag: 18, spd: 9,
+    maxHp: 112, atk: 21, def: 4, mag: 18, spd: 9,
     xp: 70, gold: 28,
     drops: [
       { kind: 'consumable', id: 'hipotion', chance: 0.22 },

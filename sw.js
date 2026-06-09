@@ -1,6 +1,6 @@
 // Service worker — network-first with cache fallback. Updates land on the
 // next load; cache only kicks in when offline. Bump CACHE to invalidate.
-const CACHE = 'aetheria-v9';
+const CACHE = 'aetheria-v10';
 const SHELL = [
   './',
   './index.html',

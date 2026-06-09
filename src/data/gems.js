@@ -17,68 +17,119 @@
 export const GEMS = [
   {
     id: 'emberCore', name: 'Ember Core', icon: '🔴', color: '#ff5a3b',
-    desc: 'A flicker of flame. Grants Fire and stronger tiers as it levels.',
+    desc: 'A flicker of flame. Grants Ember and stronger tiers as it levels.',
     maxLevel: 5, xpCurve: [200, 600, 1500, 3500],
     grantsByLevel: { 1: ['fire'], 2: ['fira'], 3: ['firaga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'tideShard', name: 'Tide Shard', icon: '🔵', color: '#3bb6ff',
-    desc: 'Cool to the touch. Grants Ice tiers.',
+    desc: 'Cool to the touch. Grants Frost tiers.',
     maxLevel: 5, xpCurve: [200, 600, 1500, 3500],
     grantsByLevel: { 1: ['ice'], 2: ['blizzara'], 3: ['blizzaga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'stormPearl', name: 'Storm Pearl', icon: '⚡', color: '#ffd84d',
-    desc: 'Crackles softly. Grants Thunder tiers.',
+    desc: 'Crackles softly. Grants Spark tiers.',
     maxLevel: 5, xpCurve: [200, 600, 1500, 3500],
     grantsByLevel: { 1: ['thunder'], 2: ['thundara'], 3: ['thundaga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'deepTide', name: 'Deep Tide', icon: '🌊', color: '#3bb6c8',
-    desc: 'A drop of unending ocean. Grants Water tiers.',
+    desc: 'A drop of unending ocean. Grants Tideshot tiers.',
     maxLevel: 5, xpCurve: [200, 600, 1500, 3500],
     grantsByLevel: { 1: ['water'], 2: ['watera'], 3: ['waterga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'voidshard', name: 'Void Shard', icon: '🕳️', color: '#5a2070',
-    desc: 'A sliver of the rift. Grants Blight tiers.',
+    desc: 'A sliver of the rift. Grants Shadowveil tiers.',
     maxLevel: 5, xpCurve: [240, 700, 1700, 3800],
     grantsByLevel: { 1: ['blight'], 2: ['blighta'], 3: ['blightga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'bloomroot', name: 'Bloomroot', icon: '🌵', color: '#7aaa3a',
-    desc: 'A living root that hums when struck. Grants Thorn tiers.',
+    desc: 'A living root that hums when struck. Grants Bramble tiers.',
     maxLevel: 5, xpCurve: [200, 600, 1500, 3500],
     grantsByLevel: { 1: ['thorn'], 2: ['thornra'], 3: ['thornga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'dawnstone', name: 'Dawnstone', icon: '☀️', color: '#ffd884',
-    desc: 'Warm even in shadow. Grants Holy tiers.',
+    desc: 'Warm even in shadow. Grants Sunlight tiers.',
     maxLevel: 5, xpCurve: [240, 700, 1700, 3800],
     grantsByLevel: { 1: ['holy'], 2: ['holyra'], 3: ['holyga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'acidvial', name: 'Acid Vial', icon: '🧪', color: '#9aaa3b',
-    desc: 'A sealed phial that hisses against the inside. Grants Bio tiers.',
+    desc: 'A sealed phial that hisses against the inside. Grants Toxin tiers.',
     maxLevel: 5, xpCurve: [240, 700, 1700, 3800],
     grantsByLevel: { 1: ['bio'], 2: ['biora'], 3: ['bioga'], 4: [], 5: [] },
     statsByLevel: { 1: {}, 2: { mag: 2 }, 3: { mag: 5 }, 4: { mag: 8 }, 5: { mag: 12 } },
   },
   {
     id: 'lifebloom', name: 'Lifebloom', icon: '🌿', color: '#7aff8a',
-    desc: 'Pulses with vitality. Grants Heal tiers.',
+    desc: 'Pulses with vitality. Grants Soothe tiers.',
     maxLevel: 5, xpCurve: [200, 600, 1500, 3500],
     grantsByLevel: { 1: ['heal'], 2: ['cure'], 3: ['curaga'], 4: [], 5: [] },
     statsByLevel: {
       1: {}, 2: { mag: 2, maxMp: 4 }, 3: { mag: 4, maxMp: 8 },
       4: { mag: 6, maxMp: 14 }, 5: { mag: 9, maxMp: 22 },
+    },
+  },
+  {
+    // White-mage defense buff line. Lv1-2 grant Protect (single-target phys
+    // shield), Lv3 unlocks Protectga (party-wide). Pair with echoingSigil to
+    // cast party-Protect from a single Protect cast, or mirroredSigil for
+    // doublecasting Protectga across the party for an 8-turn-effective shield.
+    id: 'bastionStone', name: 'Bastion Stone', icon: '🛡️', color: '#8ad0ff',
+    desc: 'Hums with steady warding. Grants Protect tiers.',
+    maxLevel: 5, xpCurve: [300, 800, 1900, 4200],
+    grantsByLevel: { 1: ['protect'], 2: ['protect'], 3: ['protectga'], 4: [], 5: [] },
+    statsByLevel: {
+      1: { def: 2 }, 2: { def: 4, maxMp: 6 }, 3: { def: 7, maxMp: 12 },
+      4: { def: 10, maxMp: 18 }, 5: { def: 14, maxMp: 28 },
+    },
+  },
+  {
+    // White-mage magic-shield line. Mirrors Bastion but for magical damage.
+    id: 'hexweaveStone', name: 'Hexweave Stone', icon: '🔷', color: '#c0a0ff',
+    desc: 'A lattice of cool light. Grants Shell tiers.',
+    maxLevel: 5, xpCurve: [300, 800, 1900, 4200],
+    grantsByLevel: { 1: ['shell'], 2: ['shell'], 3: ['shellga'], 4: [], 5: [] },
+    statsByLevel: {
+      1: { mag: 2 }, 2: { mag: 4, maxMp: 6 }, 3: { mag: 7, maxMp: 12 },
+      4: { mag: 10, maxMp: 18 }, 5: { mag: 14, maxMp: 28 },
+    },
+  },
+  {
+    // White-mage regen-buff line. Blessing → Hymn of Light (party regen).
+    // Pair with mirroredSigil for two stacked Hymns = 12 turns of regen.
+    id: 'renewalBloom', name: 'Renewal Bloom', icon: '🌱', color: '#a8ffc8',
+    desc: 'A bud that never wilts. Grants Regen buff tiers.',
+    maxLevel: 5, xpCurve: [280, 750, 1800, 4000],
+    grantsByLevel: { 1: ['blessingOfRenewal'], 2: ['blessingOfRenewal'], 3: ['hymnOfLight'], 4: [], 5: [] },
+    statsByLevel: {
+      1: { mag: 2 }, 2: { mag: 4, maxMp: 8 }, 3: { mag: 6, maxMp: 16 },
+      4: { mag: 9, maxMp: 24 }, 5: { mag: 12, maxMp: 34 },
+    },
+  },
+  {
+    // Endgame Black-mage ultimate line — Flare → Meteor → Ultima. Steep XP
+    // curve so getting Ultima from a Lv3 gem is a real chase. Pairing with
+    // prismShard gives 4× Ultima (~280 MP per cast) — the late-game power
+    // fantasy FF7's Quadra Magic + Ultima was built to enable.
+    id: 'cosmicFragment', name: 'Cosmic Fragment', icon: '✨', color: '#f0e0ff',
+    desc: 'A shard of something older than the rifts. Grants Soulburn, Star-Knell, and Aether-Knell as it awakens.',
+    maxLevel: 5, xpCurve: [1200, 3500, 9000, 22000],
+    grantsByLevel: { 1: ['flare'], 2: ['meteor'], 3: ['ultima'], 4: [], 5: [] },
+    statsByLevel: {
+      1: { mag: 4, maxMp: 10 }, 2: { mag: 8, maxMp: 22 }, 3: { mag: 14, maxMp: 38 },
+      4: { mag: 20, maxMp: 56 }, 5: { mag: 28, maxMp: 80 },
     },
   },
   {
@@ -299,14 +350,14 @@ export const GEMS = [
   // they do almost nothing (small stat boost).
   {
     id: 'echoingSigil', name: 'Echoing Sigil', icon: '📡', color: '#ffd84d',
-    desc: "Support — pair it with any gem in a linked socket group. Any spell that gem grants will hit ALL enemies instead of one. Stacks with other linkers in the same chain (e.g. AoE + 2× / 4× / counter).",
+    desc: "Support — pair in a linked socket. The paired gem's spell hits ALL enemies.",
     maxLevel: 5, xpCurve: [400, 1000, 2500, 5500], linker: true, linkerEffect: 'all',
     grantsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
     statsByLevel: { 1: { mag: 1 }, 2: { mag: 2 }, 3: { mag: 4 }, 4: { mag: 6 }, 5: { mag: 9 } },
   },
   {
     id: 'mirroredSigil', name: 'Mirrored Sigil', icon: '🪞', color: '#cdd6e0',
-    desc: "Support — pair it with any gem in a linked socket group. Any spell that gem grants will cast TWICE in a row. Stacks with other linkers in the same chain (AoE, counter). If a 4× Prism Shard shares the chain, it overrides this — cast counts don't multiply.",
+    desc: "Support — pair in a linked socket. The paired gem's spell casts TWICE.",
     maxLevel: 5, xpCurve: [500, 1200, 3000, 6500], linker: true, linkerEffect: 'double',
     grantsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
     statsByLevel: {
@@ -316,7 +367,7 @@ export const GEMS = [
   },
   {
     id: 'prismShard', name: 'Prism Shard', icon: '💠', color: '#a8e8ff',
-    desc: "Support — pair it with any gem in a linked socket group. Any spell that gem grants will cast FOUR TIMES in succession. Costs ~2.8× MP — less than four casts, but still steep. Stacks with other linkers in the same chain (AoE, counter). Overrides Mirror Sigil if both are linked.",
+    desc: "Support — pair in a linked socket. The paired gem's spell casts FOUR TIMES. ~2.8× MP cost.",
     maxLevel: 5, xpCurve: [700, 1700, 4000, 9000], linker: true, linkerEffect: 'quad',
     grantsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
     statsByLevel: {
@@ -325,8 +376,18 @@ export const GEMS = [
     },
   },
   {
+    id: 'vanguardSigil', name: 'Vanguard Sigil', icon: '🚩', color: '#ffb070',
+    desc: "Support — pair in a linked socket. Auto-casts the paired gem's spell at battle start (pays MP up front).",
+    maxLevel: 5, xpCurve: [600, 1400, 3200, 7000], linker: true, linkerEffect: 'preemptive',
+    grantsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
+    statsByLevel: {
+      1: { spd: 1 }, 2: { spd: 2, mag: 1 }, 3: { spd: 4, mag: 2 },
+      4: { spd: 6, mag: 4 }, 5: { spd: 9, mag: 7 },
+    },
+  },
+  {
     id: 'vengefulSigil', name: 'Vengeful Sigil', icon: '💢', color: '#ff5a8a',
-    desc: "Support — slot it anywhere to enable counters. When the wearer is struck and survives, they retaliate with a basic attack. Linked to a spell-granting gem, it counters with that gem's highest-tier spell instead (half the chained MP cost). Stacks with other linkers in the same chain — pair it with a Prism Shard + summon for a 4× counter-summon, etc. Counters don't trigger counters.",
+    desc: "Support — wearer retaliates when struck. Linked to a spell gem, counters with that spell (half MP).",
     maxLevel: 5, xpCurve: [500, 1200, 3000, 6500], linker: true, linkerEffect: 'counter',
     grantsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
     statsByLevel: {

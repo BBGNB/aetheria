@@ -45,6 +45,13 @@ export const SHOP_INVENTORY = [
   { type: 'gem',        id: 'mirroredSigil',  price: 0 },
   { type: 'gem',        id: 'prismShard',     price: 0 },
   { type: 'gem',        id: 'vengefulSigil',  price: 0 },
+  { type: 'gem',        id: 'vanguardSigil',  price: 0 },
+  // White-mage buff line gems
+  { type: 'gem',        id: 'bastionStone',   price: 0 },
+  { type: 'gem',        id: 'hexweaveStone',  price: 0 },
+  { type: 'gem',        id: 'renewalBloom',   price: 0 },
+  // Endgame Black-mage ultimate-line gem
+  { type: 'gem',        id: 'cosmicFragment', price: 0 },
   // Summon gems
   { type: 'gem',        id: 'stagShard',      price: 0 },
   { type: 'gem',        id: 'loomThread',     price: 0 },

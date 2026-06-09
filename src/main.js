@@ -50,7 +50,10 @@ function showClassPicker(onBack) {
   const picker = document.getElementById('classPicker');
   const cards = document.getElementById('classCards');
   cards.innerHTML = '';
-  for (const cls of CLASSES) {
+  // White Mage is reserved for Lyra — she's depicted as one in the intro
+  // and joins the party early in chapter 1, so picking White as the starting
+  // class would duplicate her identity.
+  for (const cls of CLASSES.filter(c => c.id !== 'white')) {
     const card = document.createElement('button');
     card.className = 'classCard';
     const top = topStats(cls);
@@ -108,6 +111,19 @@ document.getElementById('restartBtn').addEventListener('click', restart);
 
 // Show Continue if a save exists.
 if (game.hasSave()) document.getElementById('continueBtn').classList.remove('hidden');
+
+// Debug warps — `?warp=cal` for the Brookside rescue beat, `?warp=warden`
+// for the Hollow Warden boss (Lv7 Ranger Hero + Lv7 Lyra, mid-cave spawn).
+const warp = new URLSearchParams(location.search).get('warp');
+if (warp === 'cal') {
+  bootAudio();
+  game.warpToCalRescue();
+  startLoop();
+} else if (warp === 'warden') {
+  bootAudio();
+  game.warpToWardenBoss();
+  startLoop();
+}
 document.getElementById('muteBtn').addEventListener('click', e => {
   audio.setMuted(!audio.muted);
   e.currentTarget.textContent = audio.muted ? '🔇' : '🔊';

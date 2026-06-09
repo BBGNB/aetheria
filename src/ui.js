@@ -105,10 +105,13 @@ export class UI {
     if (this._toastEl) this._toastEl.remove();
     const el = document.createElement('div');
     el.textContent = text;
-    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#ffd84d;font-weight:700;padding:14px 22px;border-radius:12px;font-size:18px;z-index:30;pointer-events:none;border:1px solid rgba(255,216,77,0.5);';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#ffd84d;font-weight:700;padding:14px 22px;border-radius:12px;font-size:18px;z-index:30;pointer-events:none;border:1px solid rgba(255,216,77,0.5);max-width:80vw;text-align:center;line-height:1.35;';
     document.body.appendChild(el);
     this._toastEl = el;
-    setTimeout(() => { if (this._toastEl === el) { el.remove(); this._toastEl = null; } }, 1600);
+    // Scale duration with text length so locked-door / quest messages stay
+    // up long enough to read. Floor 1.6s, +~40ms per char, cap 5s.
+    const dur = Math.min(5000, Math.max(1600, 800 + text.length * 40));
+    setTimeout(() => { if (this._toastEl === el) { el.remove(); this._toastEl = null; } }, dur);
   }
 
   // ---- Battle menu ---------------------------------------------------------

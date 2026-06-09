@@ -14,6 +14,7 @@ export function drawHero(ctx, classId, t, r, opts = {}) {
     case 'black':    drawBlackMage(ctx, t, r, walking); break;
     case 'white':    drawWhiteMage(ctx, t, r, walking); break;
     case 'ranger':   drawRanger(ctx, t, r, walking); break;
+    case 'cal':      drawCalHunter(ctx, t, r, walking); break;
     default:         drawFighter(ctx, t, r, walking);
   }
   ctx.restore();
@@ -532,6 +533,216 @@ function drawRanger(ctx, t, r, walking) {
   ctx.fillStyle = '#2a1a08';
   ctx.fillRect(-r * 0.07, -r * 0.1, r * 0.14, r * 0.2);
   ctx.restore();
+
+  ctx.restore();
+}
+
+// --- Cal (hunter, wounded — guest party member, chapter 1) -------------------
+// Visually distinct from Fighter so two of them don't read as identical when
+// the player is also a Fighter. Cal stands lopsided, favoring the bad leg
+// (knee bandage, blood spot) — implies he's barely holding himself up while
+// fighting from where he was pinned. Brown leather vest + quiver matches his
+// pre-rescue NPC sprite so it's clearly the same character.
+
+function drawCalHunter(ctx, t, r, walking) {
+  const bob = walking ? Math.sin(t * 7) * 1.0 : Math.sin(t * 1.5) * 0.6;
+  drawShadow(ctx, r);
+  ctx.save();
+  ctx.translate(0, bob);
+  // Lean slightly to favor the bad leg.
+  ctx.rotate(0.06);
+
+  // Legs — dark leather pants
+  ctx.fillStyle = '#3a2818';
+  ctx.fillRect(-r * 0.32, r * 0.4, r * 0.25, r * 0.5);
+  ctx.fillRect( r * 0.07, r * 0.4, r * 0.25, r * 0.5);
+  // Boots — worn brown
+  ctx.fillStyle = '#1a0d04';
+  ctx.fillRect(-r * 0.36, r * 0.82, r * 0.32, r * 0.15);
+  ctx.fillRect( r * 0.04, r * 0.82, r * 0.32, r * 0.15);
+  // Bandaged bad knee on the camera-right leg
+  ctx.fillStyle = '#d8c8a0';
+  ctx.fillRect(r * 0.05, r * 0.56, r * 0.30, r * 0.10);
+  ctx.strokeStyle = '#a08850';
+  ctx.lineWidth = 0.6;
+  ctx.strokeRect(r * 0.05, r * 0.56, r * 0.30, r * 0.10);
+  // Blood spot on the bandage
+  ctx.fillStyle = 'rgba(120,30,30,0.6)';
+  ctx.beginPath();
+  ctx.arc(r * 0.20, r * 0.61, r * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hunter vest — green-brown gradient matching the NPC sprite
+  const vest = ctx.createLinearGradient(0, -r * 0.1, 0, r * 0.5);
+  vest.addColorStop(0, '#8a7a3a');
+  vest.addColorStop(0.6, '#5a4a18');
+  vest.addColorStop(1, '#2a200a');
+  ctx.fillStyle = vest;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.5, -r * 0.1);
+  ctx.lineTo( r * 0.5, -r * 0.1);
+  ctx.lineTo( r * 0.6,  r * 0.55);
+  ctx.lineTo(-r * 0.6,  r * 0.55);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = Math.max(1, r * 0.05);
+  ctx.stroke();
+  // Vest laces down the front
+  ctx.strokeStyle = '#3a2818';
+  ctx.lineWidth = Math.max(1, r * 0.03);
+  for (let i = 0; i < 3; i++) {
+    const y = -r * 0.04 + i * r * 0.18;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.10, y);
+    ctx.lineTo( r * 0.10, y + r * 0.08);
+    ctx.stroke();
+  }
+
+  // Belt + brass buckle
+  ctx.fillStyle = '#3a2818';
+  ctx.fillRect(-r * 0.55, r * 0.4, r * 1.1, r * 0.1);
+  ctx.fillStyle = '#c8a040';
+  ctx.fillRect(-r * 0.05, r * 0.4, r * 0.1, r * 0.1);
+
+  // Bandaged shoulder (wolf bite — the visible wound)
+  ctx.fillStyle = '#d8c8a0';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.42, -r * 0.05, r * 0.18, r * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#a08850';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(120,30,30,0.6)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.42, -r * 0.05, r * 0.07, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Quiver strap diagonal across chest
+  ctx.strokeStyle = '#3a2818';
+  ctx.lineWidth = Math.max(2, r * 0.08);
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.40, -r * 0.05);
+  ctx.lineTo( r * 0.35, r * 0.40);
+  ctx.stroke();
+
+  // Quiver behind right shoulder
+  ctx.fillStyle = '#3a2818';
+  ctx.fillRect(r * 0.30, -r * 0.65, r * 0.14, r * 0.40);
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 0.6;
+  ctx.strokeRect(r * 0.30, -r * 0.65, r * 0.14, r * 0.40);
+  // Fletching — red/yellow/red (Cal's colors from his NPC sprite)
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = ['#aa3030', '#c8aa18', '#aa3030'][i];
+    ctx.beginPath();
+    ctx.moveTo(r * (0.32 + i * 0.035), -r * 0.72);
+    ctx.lineTo(r * (0.36 + i * 0.035), -r * 0.85);
+    ctx.lineTo(r * (0.28 + i * 0.035), -r * 0.85);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Hunting knife held low in the camera-right hand
+  ctx.save();
+  ctx.translate(r * 0.58, r * 0.30);
+  ctx.rotate(-0.55);
+  // Blade
+  const blade = ctx.createLinearGradient(0, 0, 0, -r * 0.40);
+  blade.addColorStop(0, '#a0b0c0');
+  blade.addColorStop(0.5, '#d8e0e8');
+  blade.addColorStop(1, '#ffffff');
+  ctx.fillStyle = blade;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.05, 0);
+  ctx.lineTo( r * 0.05, 0);
+  ctx.lineTo( r * 0.03, -r * 0.42);
+  ctx.lineTo(-r * 0.03, -r * 0.42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#3a4a5a';
+  ctx.lineWidth = 0.7;
+  ctx.stroke();
+  // Cross-guard
+  ctx.fillStyle = '#3a2818';
+  ctx.fillRect(-r * 0.08, -r * 0.01, r * 0.16, r * 0.04);
+  // Handle + wrap
+  ctx.fillStyle = '#5a3a18';
+  ctx.fillRect(-r * 0.04, r * 0.03, r * 0.08, r * 0.16);
+  ctx.strokeStyle = '#1a0d04';
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(-r * 0.04, r * 0.03, r * 0.08, r * 0.16);
+  ctx.strokeStyle = '#3a2a14';
+  ctx.lineWidth = 0.4;
+  for (let i = 0; i < 4; i++) {
+    const ly = r * (0.05 + i * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.04, ly);
+    ctx.lineTo( r * 0.04, ly + r * 0.01);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // Knife hand
+  ctx.fillStyle = '#e8c8a0';
+  ctx.beginPath();
+  ctx.arc(r * 0.58, r * 0.32, r * 0.09, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7a4a28';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+
+  // Head — tan, sweat-sheened, no hood
+  ctx.fillStyle = '#e8c8a0';
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.30, r * 0.27, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7a4a28';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+  // Shaggy brown hair
+  ctx.fillStyle = '#5a3a18';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.28, -r * 0.34);
+  ctx.quadraticCurveTo(-r * 0.20, -r * 0.60, 0, -r * 0.58);
+  ctx.quadraticCurveTo( r * 0.20, -r * 0.60,  r * 0.28, -r * 0.34);
+  ctx.lineTo( r * 0.22, -r * 0.28);
+  ctx.lineTo(-r * 0.22, -r * 0.28);
+  ctx.closePath();
+  ctx.fill();
+  // Sweat sheen on brow
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.10, -r * 0.42, r * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+  // Determined eyes (narrowed — alert and angry)
+  ctx.fillStyle = '#1a0d0d';
+  ctx.beginPath();
+  ctx.arc(-r * 0.10, -r * 0.30, Math.max(1.4, r * 0.05), 0, Math.PI * 2);
+  ctx.arc( r * 0.10, -r * 0.30, Math.max(1.4, r * 0.05), 0, Math.PI * 2);
+  ctx.fill();
+  // Furrowed brow
+  ctx.strokeStyle = '#3a2014';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.16, -r * 0.37);
+  ctx.lineTo(-r * 0.04, -r * 0.34);
+  ctx.moveTo( r * 0.04, -r * 0.34);
+  ctx.lineTo( r * 0.16, -r * 0.37);
+  ctx.stroke();
+  // Grim mouth line
+  ctx.strokeStyle = '#3a1a14';
+  ctx.lineWidth = Math.max(1, r * 0.04);
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.08, -r * 0.18);
+  ctx.lineTo( r * 0.08, -r * 0.18);
+  ctx.stroke();
+  // Bloody scratch on cheek (consistent with pinned NPC sprite)
+  ctx.strokeStyle = '#7a1010';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.18, -r * 0.20);
+  ctx.lineTo(-r * 0.06, -r * 0.26);
+  ctx.stroke();
 
   ctx.restore();
 }

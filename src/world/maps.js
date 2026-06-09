@@ -17,30 +17,93 @@ function parse(str) {
   return rows;
 }
 
-// Meadow — starter outdoor area; open cobble exit east → town, cave mouth west
-// → cave, and a path north up to the Verdant Reach (gated until the Hollow
-// Warden has fallen).
+// Meadow (Lower) — chapter-1 corridor stretching south-to-north. South door
+// returns to Hearthstone; north door climbs to the Brookside Grove. Three
+// visible foes mark the path: a wolfling stray near the south, a bramble pup
+// mid-corridor, and a wolfling pair guarding the north gate.
 const MEADOW_STR = `
-TpTTTTTTTTTTTTTTTTTTT
-Tp.........f........T
-Tp.f.....TTT........T
-Tp...TTT.T.T...TTTT.T
-Tp...T.T.T.T...T..T.T
-Tp...T.TTT.T...T..T.T
-Tpp..T.....T...T..T.T
-Tp.ppppppppppppp....c
-Tp.p.WWWWWW...p.WWT.T
-Tp.p.W....W...p.W~T.T
-Cp.p.W....W...p.W~T.T
-Tp.p.WWWWWW...p..~T.T
-Tp.pppppppppppp~~~T.T
-Tp..............~~T.T
-Tp.f.....TT.....~~T.T
-TpTT....TTTT....~sT.T
-Tp..............~~T.T
-Tp..f.....f.....~~T.T
-TpppppppppppppppppT.T
-TTTTTTTTTTTTTTTTTTTTT`;
+TTTTTTTTTTTdTTTTTTTTTTTT
+TdTTTTTTTTTppTTTTTTTTTTT
+TppTTTTTTTbppbTTTTTTTTTT
+TppTTTTTTTbppbTTTTTTTTTT
+TppTTTTTTTbppbTTTTTTTTTT
+TppppppppppppTTTTTTTTTTT
+TTTppTTTTTfppTTTTTTTTTTT
+TTTppTTTTTTppTTTTTTTTTTT
+TTTppbTTTbppbTTTTTTTTTTT
+TTTppppppppppTTTTTTTTTTT
+TTTbppppppppbTTTTTTTTTTT
+TTTTTTTTbppTTTTTTTTTTTTT
+TTTTTTTfpppfTTTTTTTTTTTT
+TTTTTTbpppppbTTTTTTTTTTT
+TTTTTTpppppppTTTTTTTTTTT
+TTTTTTbppppppbTTTTTTTTTT
+TTTTTTTTbppTTTTTTTTTTTTT
+TTTTTTTTpppfTTTTTTTTTTTT
+TTTTTTTTppTTTTTTTTTTTTTT
+TTTTTTTbppbbbbbbbbTTTTTT
+TTTTTTTppppppppppfTTTTTT
+TTTTTTTbppppppppppbTTTTT
+TTTTTTTTTTTTTTTTTppTTTTT
+TTTTTTTTTTTTTTTTTTdTTTTT`;
+
+// Meadow Brook — a winding water-cut grove between the lower meadow and the
+// cave approach. A brook runs east-west across the middle, crossed by a
+// single stone bridge. Lily-pad flowers dot the banks. South door drops to
+// the lower meadow; north door climbs to the rocky approach.
+const MEADOW_BROOK_STR = `
+TTTTTTTTTTTTdTTTTTTTTTTT
+TTTTTTTTTTTTppTTTTTTTTTT
+TTTTTTTTTTTbppfTTTTTTTTT
+TTTTTTTTTTppppppTTTTTTTT
+TTTTTTTTTbpppppbTTTTTTTT
+TTTTTTTTTTpppfTTTTTTTTTT
+TTTTTTTTTTppTTTTTTTTTTTT
+TTTTTTTTTbppTTTTTTTTTTTT
+TTTTTTTTfppTTTTTTTTTTTTT
+TTTTTTTTppTTTTTTTTTTTTTT
+TTTTTTbppppbTTTTTTTTTTTT
+WWWWWWppppppWWWWWWWWWWWW
+WWWWWWppppppWWWWWWWWWWWW
+WWWWWWWppfTTTTTTTTTTTTTT
+TTTTTTTppTTTTTTTTTTTTTTT
+TTTTTTfppbTTTTTTTTTTTTTT
+TTTTTbpppppbTTTTTTTTTTTT
+TTTTTppppppppppppTTTTTTT
+TTTTTbpppppppppppbTTTTTT
+TTTTTTTTbppppppTTTTTTTTT
+TTTTTTTTTppppfTTTTTTTTTT
+TTTTTTTTfppTTTTTTTTTTTTT
+TTTTTTTTTppTTTTTTTTTTTTT
+TTTTTTTTTTdTTTTTTTTTTTTT`;
+
+// Meadow Approach — rocky scrubland that climbs toward the cave mouth set
+// into the western cliffs. Sparse trees and sand/stone patches give way to
+// a clearing where the Pack Alpha holds the entrance. South door drops back
+// to the brook; west door (cave mouth) opens to the Echoing Hollow.
+const MEADOW_APPROACH_STR = `
+TTTTTTTTTTTTTTTTTTTTTT
+sssTTTTTTTTTTTTTTTTTTT
+sTTTTTTTTTTTTTTTTTTTTT
+sTTsTTTTTTTTTTTTTTTTTT
+sTTTssTTTTTTTTTTTTTTTT
+TsTTTsTTssTTTTTTTTTTTT
+TTTssTTssTTTTTTTTTTTTT
+TTTTTssTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTT
+sTTTTTTTTTTTTTTTTTTTTT
+Cppppppp~~~ssssTTTTTTT
+sTTbpppppppfssTTTTTTTT
+TTTTTfppppppp~sTTTTTTT
+TTTTTbpppppppbTTTTTTTT
+TTTTTTTTTbppTTTTTTTTTT
+TTTTTTTTTfppfTTTTTTTTT
+TTTTTTTTTTppTTTTTTTTTT
+TTTTTTTTTTppppppppTTTT
+TTTTTTTTTTbppppppppbTT
+TTTTTTTTTTTTTTTppfTTTT
+TTTTTTTTTTTTTTTppTTTTT
+TTTTTTTTTTTTTTTTdTTTTT`;
 
 // Town — Hearthstone. Tighter 40×28 layout: shrine + Aetherial well to the
 // north, a fountain plaza in the centre, two shops south of the plaza with
@@ -235,44 +298,267 @@ XXXXXXXXXXXXXXXXXXXXXX`;
 
 export const MAPS = {
   meadow: {
-    id: 'meadow', name: 'Verdant Meadow',
+    id: 'meadow', name: 'Lower Meadow',
     tiles: parse(MEADOW_STR),
-    playerStart: { tx: 2, ty: 14 },
+    // Player enters from the south door (town side) — drop them one tile north
+    // of the door, on the path.
+    playerStart: { tx: 18, ty: 22 },
     encounters: [
-      { enemyIds: ['slime'],                            weight: 3 },
-      { enemyIds: ['slime', 'slime'],                   weight: 2 },
+      { enemyIds: ['slime'],                            weight: 2 },
+      { enemyIds: ['slime', 'slime'],                   weight: 1 },
       { enemyIds: ['bat'],                              weight: 2 },
       { enemyIds: ['bat', 'bat'],                       weight: 1 },
-      { enemyIds: ['wolf'],                             weight: 1 },
-      // Three-enemy mobs — weighted low; the meadow shouldn't gut a fresh hero.
-      { enemyIds: ['slime', 'slime', 'slime'],          weight: 1 },
+      // Three-enemy mobs — weighted low; the visible enemies do the heavy lifting.
       { enemyIds: ['slime', 'slime', 'bat'],            weight: 1 },
       { enemyIds: ['bat', 'bat', 'slime'],              weight: 1 },
       // Full-party mobs — only roll once the party reaches 3 members.
-      { enemyIds: ['slime', 'slime', 'slime', 'bat'],            weight: 2, partyMin: 3 },
-      { enemyIds: ['bat', 'bat', 'bat', 'slime'],                weight: 2, partyMin: 3 },
-      { enemyIds: ['slime','slime','bat','bat','slime'],         weight: 1, partyMin: 3 },
-      { enemyIds: ['wolf','slime','slime','bat'],                weight: 1, partyMin: 3 },
+      { enemyIds: ['slime', 'slime', 'slime', 'bat'],            weight: 1, partyMin: 3 },
+      { enemyIds: ['bat', 'bat', 'bat', 'slime'],                weight: 1, partyMin: 3 },
     ],
-    encounterRate: 2, // ~1 fight per 500 px walked (≈12 tiles)
+    encounterRate: 1.4, // lower than before — visible foes carry the corridor.
     npcs: [],
     doors: [
-      { tx: 20, ty: 7,  target: 'town',   targetTx: 1,  targetTy: 16 },
-      { tx: 0,  ty: 10, target: 'cave',   targetTx: 20, targetTy: 8 },
-      // North path to the Verdant Reach — opens once the Hollow Warden falls.
-      { tx: 1,  ty: 0,  target: 'reachOuter', targetTx: 20, targetTy: 30,
+      // South door — back to Hearthstone.
+      { tx: 18, ty: 23, target: 'town', targetTx: 1, targetTy: 16 },
+      // North door — up to the Brookside Grove. Locked until the first pair fight.
+      { tx: 11, ty: 0,  target: 'meadowBrook', targetTx: 10, targetTy: 22,
+        requires: 'meadow:pair1',
+        lockedMsg: 'The pack still prowls the lower meadow. Clear the way north first.' },
+      // Chapter-2 shortcut — once the Hollow Warden falls, the path north
+      // also opens to the Verdant Reach via the lower meadow's old route.
+      { tx: 1, ty: 1, target: 'reachOuter', targetTx: 20, targetTy: 30,
         requires: 'cave:warden',
-        lockedMsg: 'The path north pulses with a wrongness. Lyra warns: "Not yet — the Hollow still binds it."' },
+        lockedMsg: 'The path beyond pulses with a wrongness. Something deeper in the Hollow still binds it shut.' },
     ],
-    // The Pack Alpha guards the cave mouth — must be slain first.
+    // Three trigger-based ambushes lining the corridor. Mobs lurk in cover and
+    // burst onto the path when the player steps on the trigger tile.
+    overworldEnemies: [
+      { id: 'meadow:wolfling1',
+        // Trigger spans the row-19 funnel (cols 8-9) so the player can't slip
+        // past on the parallel row-20/21 path-width — guaranteed fire on any
+        // northward advance.
+        trigger: { tx: 8, ty: 19, w: 2, h: 1 },
+        spawn: [
+          { tx: 12, ty: 19, spriteId: 'wolfling' },
+        ],
+        speed: 110, flourish: 'dust',
+        name: 'Wolfling Stray',
+        encounter: { enemyIds: ['wolfling'] },
+        preLines: ['A wolfling lunges from the tall grass!'],
+        postLines: ['The first of many. Bren wasn\'t exaggerating.'] },
+      { id: 'meadow:bramble1',
+        // Trigger spans the row-16 funnel (cols 9-10) so the player can't slip
+        // past on the wider row-15 path-width.
+        trigger: { tx: 9, ty: 16, w: 2, h: 1 },
+        spawn: [
+          { tx: 5, ty: 15, spriteId: 'bramblePup' },
+        ],
+        speed: 110, flourish: 'spore',
+        name: 'Bramble Pup',
+        encounter: { enemyIds: ['bramblePup'] },
+        preLines: ['A thorned shape rears out of the brambles!'],
+        postLines: ['Even the brambles have teeth now. The corruption runs deeper than the meadow.'] },
+      { id: 'meadow:pair1',
+        // Trigger spans the east-branch funnel at row 4 (cols 11-12) before the
+        // north door — wider than the original single tile so the player can't
+        // bypass on the parallel row.
+        trigger: { tx: 11, ty: 4, w: 2, h: 1 },
+        spawn: [
+          { tx: 9, ty: 2, spriteId: 'wolfling' },
+          { tx: 13, ty: 2, spriteId: 'wolfling' },
+        ],
+        speed: 110, flourish: 'dust',
+        name: 'Wolfling Pair',
+        encounter: { enemyIds: ['wolfling', 'wolfling'] },
+        preLines: ['Two wolflings circle in, hackles raised.'],
+        postLines: ['The path north opens.', 'A brook murmurs somewhere just past the ridge.'] },
+    ],
+    music: 'overworld',
+    ambient: 'forest',
+  },
+  meadowBrook: {
+    id: 'meadowBrook', name: 'Brookside Grove',
+    tiles: parse(MEADOW_BROOK_STR),
+    // Player enters from the lower meadow via the south door.
+    playerStart: { tx: 10, ty: 22 },
+    encounters: [
+      { enemyIds: ['slime'],                            weight: 2 },
+      { enemyIds: ['slime', 'bat'],                     weight: 2 },
+      { enemyIds: ['bat', 'bat'],                       weight: 1 },
+      { enemyIds: ['wolf'],                             weight: 1 },
+      { enemyIds: ['slime', 'slime', 'bat'],            weight: 1 },
+      { enemyIds: ['wolf', 'slime', 'bat'],                      weight: 1, partyMin: 3 },
+      { enemyIds: ['bat', 'bat', 'slime', 'slime'],              weight: 1, partyMin: 3 },
+    ],
+    encounterRate: 1.6,
+    npcs: [
+      // Pre-rescue Cal — visible from the south path, pinned against a pine,
+      // wounded shoulder, snapped bow across his lap. Vanishes once the rescue
+      // trigger fires and the cal:rescued flag is set.
+      { id: 'cal:pinned', tx: 12, ty: 1, color: '#c8a070', name: 'Cal',
+        kind: 'talk', hideIfFlag: 'cal:rescued',
+        lines: [
+          'Cal: "(He grits his teeth, eyes darting past you toward the bushes.) Stay back — they\'re still in the grass. Two of them. I broke my bow on the first lunge."',
+          'Cal: "I can\'t stand. If you can put a blade between me and them, I\'ll fight from where I am — I\'ve got one good arm left."',
+        ] },
+      // Post-rescue Cal — relieved, ready to limp home. Sits a tile to the
+      // south-east, suggesting he managed to drag himself a little further once
+      // the wolflings were down.
+      { id: 'cal:scout', tx: 13, ty: 2, color: '#c8a070', name: 'Cal',
+        kind: 'talk', requires: 'cal:rescued',
+        lines: [
+          'Thanks for the rescue. I\'ll head back to Hearthstone — tell Edran I made it.',
+          'You\'re going to need every potion you\'ve got past this point.',
+        ] },
+    ],
+    doors: [
+      // South back to the lower meadow.
+      { tx: 10, ty: 23, target: 'meadow', targetTx: 11, targetTy: 1 },
+      // North up to the cave approach — opens once Cal is freed.
+      { tx: 12, ty: 0, target: 'meadowApproach', targetTx: 16, targetTy: 20,
+        requires: 'cal:rescued',
+        lockedMsg: 'Don\'t leave Cal behind. He\'s pinned by wolves somewhere here.' },
+    ],
+    overworldEnemies: [
+      { id: 'meadow:otter1',
+        // Trigger spans both path tiles at row 14 so the player can't slip past
+        // on the parallel col-7 path tile.
+        trigger: { tx: 7, ty: 14, w: 2, h: 1 },
+        spawn: [
+          { tx: 3, ty: 12, spriteId: 'corruptedOtter' },
+        ],
+        speed: 110, flourish: 'spore',
+        name: 'Corrupted Otter',
+        encounter: { enemyIds: ['corruptedOtter'] },
+        preLines: ['A sleek shape slips from the brook, its fur slick with rot.'],
+        postLines: ['Even the brook is sick. Whatever poisons the meadow runs through the water too.'] },
+      { id: 'meadow:wisp1',
+        // Trigger spans both path tiles at row 7 so the player can't slip past
+        // on the parallel col-11 path tile.
+        trigger: { tx: 10, ty: 7, w: 2, h: 1 },
+        spawn: [
+          { tx: 7, ty: 6, spriteId: 'wraithWisp' },
+        ],
+        speed: 110, flourish: 'violet',
+        name: 'Wraith Wisp',
+        encounter: { enemyIds: ['wraithWisp'] },
+        preLines: ['A violet light bobs through the trees — and turns toward you.'],
+        postLines: ['The wisp dissolves into nothing. Lyra would call that a hand of the Sundered, reaching out to test the road.'] },
+      { id: 'meadow:rescueCal',
+        // Trigger spans the full width of row 3 path (cols 10-15) so any
+        // approach to Cal fires the ambush — fixes the parallel-row slip
+        // where a 1x1 trigger let the player bypass it on row 4.
+        trigger: { tx: 10, ty: 3, w: 6, h: 1 },
+        spawn: [
+          { tx: 9, ty: 4, spriteId: 'wolfling' },
+          { tx: 15, ty: 4, spriteId: 'wolfling' },
+        ],
+        speed: 110, flourish: 'dust',
+        guest: 'cal',
+        name: 'Cal\'s Attackers',
+        encounter: { enemyIds: ['starvingWolfling', 'starvingWolfling'] },
+        // Story beat — runs as a dialog before the ambush. Player finds Cal,
+        // agrees to fight alongside him, then the wolves burst on his cue.
+        preDialog: [
+          '(You drop to a knee beside the wounded hunter. Shoulder shredded, bow snapped clean across his lap, blood through the leather.)',
+          'Cal: "Bren sent you. Good. Two of them — still in the grass. I winged one before my bow broke."',
+          '(He draws a hunting knife from his belt with his good hand. The grip is steady.)',
+          'Cal: "Can\'t stand. But I can fight from here, and I\'m not letting them have you too. — Here they come."',
+        ],
+        preLines: [
+          'The grass on both sides of the path erupts — two wolflings burst out, hackles up, teeth bared.',
+          'Cal: "Behind you! Get them off me — I\'ll fight from where I sit!"',
+        ],
+        postLines: [
+          'Cal sags against your shoulder. "I owe you my life. Take this potion — and these wolves\' ears. The Alpha will smell its own."',
+          'The brook gurgles softly behind you. The rocky climb to the cave mouth is just ahead.',
+        ] },
+    ],
+    music: 'overworld',
+    ambient: 'forest',
+  },
+  meadowApproach: {
+    id: 'meadowApproach', name: 'Cave Approach',
+    tiles: parse(MEADOW_APPROACH_STR),
+    // Player enters from the brook via the south door.
+    playerStart: { tx: 16, ty: 20 },
+    encounters: [
+      { enemyIds: ['wolf'],                             weight: 2 },
+      { enemyIds: ['wolf', 'slime'],                    weight: 1 },
+      { enemyIds: ['bat', 'bat'],                       weight: 1 },
+      { enemyIds: ['wolf', 'bat'],                      weight: 1 },
+      { enemyIds: ['wolf', 'wolf', 'slime'],            weight: 1 },
+      { enemyIds: ['wolf', 'wolf', 'bat', 'bat'],                weight: 1, partyMin: 3 },
+      { enemyIds: ['wolf', 'slime', 'bat', 'slime'],             weight: 1, partyMin: 3 },
+    ],
+    encounterRate: 1.8,
+    npcs: [],
+    doors: [
+      // South back to the brook.
+      { tx: 16, ty: 21, target: 'meadowBrook', targetTx: 12, targetTy: 1 },
+      // West — the cave mouth. Only opens once the Pack Alpha falls.
+      { tx: 0, ty: 10, target: 'cave', targetTx: 20, targetTy: 8,
+        requires: 'meadow:packAlpha',
+        lockedMsg: 'The Pack Alpha guards the way in.' },
+    ],
+    // Pack Alpha boss event — gated by completing the final corridor fight.
     bossEvents: [
-      { id: 'meadow:packAlpha', tx: 0, ty: 10, boss: 'packAlpha',
+      { id: 'meadow:packAlpha', tx: 1, ty: 10, requires: 'meadow:packTrio',
+        boss: 'packAlpha',
         speaker: '',
         lines: [
           'A massive russet wolf steps from the cave\'s shadow, its hackles raised.',
           'Elder Vorrin warned of this one — the Pack Alpha that hunts the road to the Hollow.',
           'It bares blackened fangs and lets out a guttural growl that shakes the trees.',
           'There is no path past it. Only through.',
+        ] },
+    ],
+    overworldEnemies: [
+      { id: 'meadow:alphaScout',
+        trigger: { tx: 15, ty: 19 },
+        spawn: [
+          { tx: 12, ty: 19, spriteId: 'alphaScout' },
+        ],
+        speed: 110, flourish: 'dust',
+        name: 'Alpha Scout',
+        encounter: { enemyIds: ['alphaScout'] },
+        preLines: ['A lean scout-wolf breaks from the rocks, eyes locked on you.'],
+        postLines: ['The scout dies hard. The Alpha will know you are coming now.'] },
+      { id: 'meadow:echo1',
+        trigger: { tx: 10, ty: 16 },
+        spawn: [
+          { tx: 12, ty: 14, spriteId: 'wraithEcho' },
+        ],
+        speed: 110, flourish: 'violet',
+        name: 'Wraith Echo',
+        encounter: { enemyIds: ['wraithEcho'] },
+        preLines: ['A shape made of folded shadow uncoils from the stones.'],
+        postLines: ['Its voice trails off into nothing. "...broken... broken..." Lyra\'s words, in your head, before you have met her.'] },
+      { id: 'meadow:packPair',
+        trigger: { tx: 11, ty: 13 },
+        spawn: [
+          { tx: 9, ty: 14, spriteId: 'wolfling' },
+          { tx: 13, ty: 13, spriteId: 'wolfling' },
+        ],
+        speed: 110, flourish: 'dust',
+        name: 'Pack Wolves',
+        encounter: { enemyIds: ['wolfling', 'wolfling'] },
+        preLines: ['Two pack-wolves close on either side, jaws low.'],
+        postLines: ['The pack thins. One more wall before the Alpha.'] },
+      { id: 'meadow:packTrio',
+        trigger: { tx: 5, ty: 11 },
+        spawn: [
+          { tx: 3, ty: 11, spriteId: 'wolfling' },
+          { tx: 5, ty: 13, spriteId: 'wolfling' },
+          { tx: 5, ty: 9, spriteId: 'alphaScout' },
+        ],
+        speed: 110, flourish: 'dust',
+        name: 'Pack Closing',
+        encounter: { enemyIds: ['wolfling', 'wolfling', 'alphaScout'] },
+        preLines: ['Three wolves form a ragged line between you and the cave.'],
+        postLines: [
+          'The pack lies still. The cave mouth yawns ahead — and something old waits inside.',
+          'A low growl answers from within the dark.',
         ] },
     ],
     music: 'overworld',
@@ -290,7 +576,14 @@ export const MAPS = {
         lines: ['Welcome, traveler! Mira here. Take a look at my wares?'] },
       { id: 'innkeeper',  tx: 29, ty: 21, color: '#7adaff', name: 'Old Edran',
         kind: 'inn', cost: 10,
-        lines: ['You look weary. A bed for the night will cost 10 gold.'] },
+        lines: ['"Back already? A bed for the night runs ten gold. Same as it ever was."'] },
+      // Bren — the dying scout. Only spawns AFTER the player has rested the
+      // first night (per Vorrin's "I will know more by morning"). He's gone
+      // once chapter 1 finishes. Sits slumped just inside the west gate.
+      { id: 'bren:dying', tx: 3, ty: 16, color: '#a06a4a', name: 'Bren',
+        kind: 'talk',
+        requires: 'town:rested',
+        hideIfFlag: 'cave:warden' },
       { id: 'elder',      tx: 19, ty: 6, color: '#b67aff', name: 'Elder Vorrin',
         kind: 'talk',
         lines: [
@@ -307,11 +600,30 @@ export const MAPS = {
         ] },
     ],
     doors: [
-      { tx: 0, ty: 15, target: 'meadow', targetTx: 19, targetTy: 7 },
-      { tx: 0, ty: 16, target: 'meadow', targetTx: 19, targetTy: 7 },
-      { tx: 0, ty: 17, target: 'meadow', targetTx: 19, targetTy: 7 },
+      // West gate — out to the lower meadow corridor. The corridor's south
+      // door drops the party onto the path tile just north of the meadow exit.
+      // `restGate` — first time the player tries to cross before resting,
+      // the overworld scene swaps the door for an auto-rest cutscene (fade
+      // to night, wake, set `town:rested`) so Vorrin's "wait until morning"
+      // line lands as a real beat instead of empty flavor.
+      { tx: 0, ty: 15, target: 'meadow', targetTx: 18, targetTy: 22, restGate: true },
+      { tx: 0, ty: 16, target: 'meadow', targetTx: 18, targetTy: 22, restGate: true },
+      { tx: 0, ty: 17, target: 'meadow', targetTx: 18, targetTy: 22, restGate: true },
     ],
     searchables: [
+      // The Aetheric well / shrine in the plaza. Vorrin tells the player to
+      // touch it "if you mean to swear anything". One-shot Order lore beat —
+      // no item granted, just dialog and a chime. The well tile itself is
+      // non-walkable; the player stands adjacent and the prompt fires.
+      { id: 'town:shrine', tx: 19, ty: 8, kind: 'shrine', label: 'The Aetheric Well',
+        prompt: '(Worn stone, ringed with characters older than any kingdom. A faint hum reaches up from the dark below.)',
+        reveal: [
+          '(You lay your hand on the rim. The stone is warm — warmer than the air.)',
+          '(For a heartbeat you feel something running underneath. A line. A thread. A song one note long, held forever.)',
+          '"…the seven keep what one cannot." (The words form in your throat without your asking, then are gone.)',
+          '(The Aether knows you walked here.)',
+        ],
+        item: { kind: 'lore', toast: false, audio: 'chime' } },
       // Visible — pickups beside known props.
       { id: 'town:crate1',  tx: 4,  ty: 19, kind: 'crate',  label: 'Wooden crate',
         lines: ['You pry open the crate.'],
@@ -377,7 +689,9 @@ export const MAPS = {
         ] },
     ],
     doors: [
-      { tx: 21, ty: 8, target: 'meadow', targetTx: 1, targetTy: 10 },
+      // Cave-mouth exit — emerges on the Cave Approach, one tile east of the
+      // mouth (the C tile at (0,10)).
+      { tx: 21, ty: 8, target: 'meadowApproach', targetTx: 1, targetTy: 10 },
     ],
     // After Lyra is recruited, the Rift sends a guardian to stop her leaving.
     // Once defeated, the flag is set and the exit is free.

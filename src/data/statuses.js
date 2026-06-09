@@ -60,6 +60,21 @@ export const STATUSES = [
     kind: 'statMod', stat: 'def', factor: 0.7,
     duration: 99, persistent: true, negative: true,
     appliedMsg: "'s armor cracks!" },
+
+  // ---- Damage-reduction buffs (applied at damage time) ----------------
+  // `damageMult` kind — multiplies incoming damage of matching elements.
+  //   match: 'phys'   — applies to physical attacks only
+  //   match: 'magic'  — applies to fire/ice/thunder/water/dark/nature/
+  //                     holy/poison (every non-phys, non-nonelemental hit)
+  //   match: 'all'    — every incoming hit (defensive ult, future use)
+  // factor < 1 reduces damage taken. Stack multiplicatively if multiple
+  // matching statuses are active.
+  { id: 'protect', name: 'Protect', icon: '🛡️', color: '#8ad0ff',
+    kind: 'damageMult', match: 'phys', factor: 0.5,
+    duration: 4, appliedMsg: ' is shielded against blades.' },
+  { id: 'shell',   name: 'Shell',   icon: '🔷', color: '#c0a0ff',
+    kind: 'damageMult', match: 'magic', factor: 0.5,
+    duration: 4, appliedMsg: ' is shielded against spellfire.' },
 ];
 
 export const STATUS_BY_ID = Object.fromEntries(STATUSES.map(s => [s.id, s]));

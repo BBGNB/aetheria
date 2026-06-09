@@ -8,6 +8,7 @@ import { Effects } from '../effects.js';
 import { createEnemyInstance } from '../data/enemies.js';
 import { createGemInstance } from '../data/gems.js';
 import { SummonBinding } from './summonBinding.js';
+import { drawOverworldEnemy } from '../data/overworldEnemySprites.js';
 
 export class Overworld {
   constructor(game, spawnOverride) {
@@ -31,6 +32,13 @@ export class Overworld {
         if (n.kind === 'recruit' && recruited.has(n.id)) return false;
         // Non-recruit NPC that should vanish once a tied recruit has joined.
         if (n.hideIfRecruited && recruited.has(n.hideIfRecruited)) return false;
+        // Story flag gate: NPC vanishes once the named flag is set
+        // (e.g. Bren is gone once chapter 1 is finished).
+        if (n.hideIfFlag && this.game.flags.has(n.hideIfFlag)) return false;
+        // Story flag gate the other direction: appears only after a flag is set
+        // (Cal shows up post-rescue, for example). Matches the cutscene/door
+        // pattern that already uses `requires` elsewhere.
+        if (n.requires && !this.game.flags.has(n.requires)) return false;
         return true;
       })
       .map(n => ({
@@ -49,6 +57,60 @@ export class Overworld {
         t: 0,
       }));
     this.nearestSearchable = null;
+    // Visible chapter-1 corridor enemies — they idle on the overworld until the
+    // player gets within `detectRadius` tiles, then charge and trigger a
+    // pre-battle cutscene. Defeated ones are filtered out via game.defeatedEnemies.
+    // Migration: chapter-1 corridor maps are empty for saves that already cleared
+    // the Hollow Warden — they've effectively finished the corridor narratively.
+    const defeated = this.game.defeatedEnemies || new Set();
+    const corridorPostChapter1 = ['meadow', 'meadowBrook', 'meadowApproach']
+      .includes(this.mapData.id) && this.game.flags.has('cave:warden');
+    this.overworldEnemies = corridorPostChapter1 ? [] : (this.mapData.overworldEnemies || [])
+      .filter(oe => !defeated.has(oe.id))
+      .map(oe => {
+        // Two shapes supported:
+        //  - Legacy (visible from start): `tx`/`ty` + `spriteId` — one enemy
+        //    pacing the map, detected via `detectRadius` (kept for any maps
+        //    that want the old behavior).
+        //  - Ambush (invisible until triggered): `trigger` (single tile or
+        //    {tx,ty,w,h} region) + `spawn[]` (one entry per mob with its own
+        //    tile + spriteId). Crosses the trigger and they burst from the
+        //    spawn tiles with a flourish, then charge the player.
+        const ambush = !!oe.trigger;
+        const spawns = ambush
+          ? oe.spawn.map((sp, i) => ({
+              spriteId: sp.spriteId,
+              homeX: (sp.tx + 0.5) * TILE_SIZE,
+              homeY: (sp.ty + 0.5) * TILE_SIZE,
+              x: (sp.tx + 0.5) * TILE_SIZE,
+              y: (sp.ty + 0.5) * TILE_SIZE,
+              t: i * 0.13, // staggered idle phase so they don't bob in lockstep
+              scale: 0,    // grows from 0 to 1 during 'triggered'
+              idx: i,
+            }))
+          : [{
+              spriteId: oe.spriteId,
+              homeX: (oe.tx + 0.5) * TILE_SIZE,
+              homeY: (oe.ty + 0.5) * TILE_SIZE,
+              x: (oe.tx + 0.5) * TILE_SIZE,
+              y: (oe.ty + 0.5) * TILE_SIZE,
+              t: 0, scale: 1, idx: 0,
+            }];
+        return {
+          ...oe,
+          _ambush: ambush,
+          _spawns: spawns,
+          t: 0,
+          // For ambush: hidden | triggered | charging
+          // For legacy: idle | spotted | charging
+          state: ambush ? 'hidden' : 'idle',
+          stateT: 0,
+          facing: 0,
+        };
+      });
+    this.preBattleCutscene = null;
+    this._pendingDefeatedFlag = null;
+    this._pendingPostLines = null;
     this.encounter = null;
     this.encounterT = 0;
     this.transition = null;
@@ -226,7 +288,10 @@ export class Overworld {
 
   _meetsCutsceneRequires(req) {
     const list = Array.isArray(req) ? req : [req];
-    return list.every(r => this.game.flags.has(r) || this.game.recruited?.has(r));
+    return list.every(r =>
+      this.game.flags.has(r)
+      || this.game.recruited?.has(r)
+      || this.game.defeatedEnemies?.has(r));
   }
 
   // Hook for one-shot cinematics that fire AFTER a cutscene's dialog closes
@@ -269,12 +334,29 @@ export class Overworld {
 
   update(dt) {
     this.fx.update(dt);
+    // Hold-to-fast-forward applies during the two RAF-driven overworld
+    // cutscenes (boss intro + pre-battle ambush). Quick taps still trigger
+    // skip via the existing tap handlers; long holds (>350ms) accelerate
+    // playback 4× until released.
+    const cutsceneActive = this.bossCutscene || this.preBattleCutscene;
+    if (cutsceneActive && this.game.input.active) {
+      this._cutscenePressT = (this._cutscenePressT || 0) + dt;
+      if (this._cutscenePressT > 0.35) {
+        this._cutsceneFf = true;
+        dt *= 4;
+      }
+    } else {
+      this._cutscenePressT = 0;
+      this._cutsceneFf = false;
+    }
     if (this.bossCutscene) { this._updateBossCutscene(dt); return; }
+    if (this.preBattleCutscene) { this._updatePreBattleCutscene(dt); return; }
     if (this.game.menu?.open) return;
     if (this.cinematicLock > 0) {
       this.cinematicLock -= dt;
       // Still let NPCs animate and trail tick, but skip player movement/encounters.
       for (const n of this.npcs) n.t += dt;
+      for (const oe of this.overworldEnemies) oe.t += dt;
       return;
     }
     // Drop any NPCs that have just been recruited so they vanish from the world.
@@ -290,6 +372,20 @@ export class Overworld {
       const before = this.searchables.length;
       this.searchables = this.searchables.filter(s => !searched.has(s.id));
       if (this.searchables.length !== before) this.nearestSearchable = null;
+    }
+    // Drop any overworld enemies the player has just defeated.
+    const defeated = this.game.defeatedEnemies;
+    if (defeated && defeated.size && this.overworldEnemies.length) {
+      this.overworldEnemies = this.overworldEnemies.filter(oe => !defeated.has(oe.id));
+    }
+    // After a scripted fight, surface any postLines once we're back in the
+    // overworld and not inside another cutscene.
+    if (this._pendingPostLines && !this.encounter && !this.transition) {
+      const lines = this._pendingPostLines;
+      this._pendingPostLines = null;
+      this.cinematicLock = 999;
+      this.game.ui.showDialog('', lines, ['Onward'], () => { this.cinematicLock = 0; });
+      return;
     }
     if (this.encounter) {
       this.encounterT += dt;
@@ -310,17 +406,28 @@ export class Overworld {
     const input = this.game.input;
     const speed = 150;
     const r = 12;
-    const dx = input.dirX * input.magnitude * speed * dt;
-    const dy = input.dirY * input.magnitude * speed * dt;
+    // Tick visible-enemy state machines BEFORE reading player input. An active
+    // ambush (any enemy in 'triggered' or 'charging') locks player movement
+    // and short-circuits the rest of update.
+    if (this.overworldEnemies.length) {
+      this._updateOverworldEnemies(dt, ow);
+      if (this.preBattleCutscene) return;
+    }
+    const ambushActive = this.overworldEnemies.some(
+      oe => oe.state === 'triggered' || oe.state === 'charging'
+    );
+    const inX = ambushActive ? 0 : input.dirX * input.magnitude * speed * dt;
+    const inY = ambushActive ? 0 : input.dirY * input.magnitude * speed * dt;
     const beforeX = ow.x, beforeY = ow.y;
-    if (this.map.walkable(ow.x + dx, ow.y, r) && !this._npcAt(ow.x + dx, ow.y, r)) ow.x += dx;
-    if (this.map.walkable(ow.x, ow.y + dy, r) && !this._npcAt(ow.x, ow.y + dy, r)) ow.y += dy;
-    this.moving = input.magnitude > 0.05;
+    if (this.map.walkable(ow.x + inX, ow.y, r) && !this._npcAt(ow.x + inX, ow.y, r)) ow.x += inX;
+    if (this.map.walkable(ow.x, ow.y + inY, r) && !this._npcAt(ow.x, ow.y + inY, r)) ow.y += inY;
+    this.moving = !ambushActive && input.magnitude > 0.05;
     if (this.moving) {
       ow.facing = Math.atan2(input.dirY, input.dirX);
       this.stepTimer += dt;
       if (this.stepTimer > 0.32) { this.stepTimer = 0; audio.play('step'); }
     }
+    const dx = ow.x - beforeX, dy = ow.y - beforeY;
 
     this._spawnAmbient(dt);
 
@@ -361,6 +468,13 @@ export class Overworld {
           !this.game.flags.has(b.id) &&
           this._meetsBossRequires(b));
         if (blocker) { this._triggerBossEncounter(blocker); return; }
+        // Rest gate — first time crossing before resting, swap the door for
+        // an auto-rest cutscene (fade to night, wake at dawn). After it runs,
+        // `town:rested` is set and the same tile transitions normally.
+        if (d.restGate && !this.game.flags.has('town:rested')) {
+          this._playRestCutscene();
+          return;
+        }
         // Story gate — door requires a flag/recruit to open.
         if (d.requires && !this._meetsBossRequires(d)) {
           if (!this._lastGatedTile) {
@@ -444,10 +558,85 @@ export class Overworld {
 
   _meetsBossRequires(ev) {
     if (!ev.requires) return true;
-    // For now requires is either a recruited NPC id or a flag id.
+    // `requires` can be a recruited NPC id, a story flag, or a defeated
+    // overworld enemy id (the chapter-1 corridor gates use the last form).
     if (this.game.recruited?.has(ev.requires)) return true;
     if (this.game.flags?.has(ev.requires)) return true;
+    if (this.game.defeatedEnemies?.has(ev.requires)) return true;
     return false;
+  }
+
+  // First-night rest cutscene — fires when the player tries the west gate
+  // before resting (Vorrin's "wait until tomorrow" promise made real). Fades
+  // the world to a deep-navy night, holds, soft chime + heal sting, fades
+  // back to morning light, then applies the rest and shows a dawn dialog.
+  _playRestCutscene() {
+    this.cinematicLock = 5.0;
+    audio.play('chime');
+    // Deep navy night wash — near-opaque so the world dissolves into stars.
+    this.fx.sceneTint('#06122a', 0.94, 5.0, 1.0, 1.0);
+    // Slow drift of starlight glints during the held night phase.
+    for (let i = 0; i < 32; i++) {
+      setTimeout(() => {
+        if (!this.fx) return;
+        const x = Math.random() * (this.game.viewW || 800);
+        const y = Math.random() * (this.game.viewH || 600) * 0.55;
+        this.fx.spawn({
+          x, y, vx: 0, vy: -8,
+          gravity: 0, drag: 0.4,
+          size: 0.8 + Math.random() * 0.6,
+          color: '#dceeff',
+          life: 1.6 + Math.random() * 0.4,
+          shrink: true, glow: 7,
+        });
+      }, 1100 + i * 70);
+    }
+    // The rest taking effect — soft heal sting at the midpoint.
+    setTimeout(() => audio.play('heal'), 2400);
+    // Dawn: apply the rest, release the lock, show the wake-up dialog. Push
+    // the player one tile east so the same gate door doesn't insta-re-fire
+    // the transition on the very next frame (door processing reads tile
+    // position each frame). Refresh the NPC list so Bren — gated by
+    // `requires: 'town:rested'` — actually appears at the gatepost.
+    setTimeout(() => {
+      if (!this.game) return;
+      this.game._restAtInn(0);
+      const ow = this.game.player.overworld;
+      if (ow.x < TILE_SIZE * 1.0) ow.x = TILE_SIZE * 1.5;
+      this._refreshNpcs();
+      this.cinematicLock = 0;
+      audio.play('confirm');
+      this.game.ui.showDialog('Dawn', [
+        '(You wake before dawn. The fire in the gatehouse has gone to embers and the road outside is still grey with mist.)',
+        '(Hearthstone has gone quiet around you. Vorrin will be up — he never sleeps the whole night through any more.)',
+      ], null, null);
+    }, 5000);
+  }
+
+  // Re-run the NPC filter from current flags + recruited state. Used after a
+  // story event flips a `requires` flag, so the gated NPC (e.g. Bren after
+  // `town:rested`) appears immediately without forcing a map reload. Existing
+  // NPC animation phase (`t`) is preserved so unrelated NPCs don't visibly
+  // reset their bob.
+  _refreshNpcs() {
+    const recruited = this.game.recruited || new Set();
+    const existing = new Map();
+    for (const n of this.npcs) existing.set(n.id, n);
+    this.npcs = (this.mapData.npcs || [])
+      .filter(n => {
+        if (n.kind === 'recruit' && recruited.has(n.id)) return false;
+        if (n.hideIfRecruited && recruited.has(n.hideIfRecruited)) return false;
+        if (n.hideIfFlag && this.game.flags.has(n.hideIfFlag)) return false;
+        if (n.requires && !this.game.flags.has(n.requires)) return false;
+        return true;
+      })
+      .map(n => existing.get(n.id) || ({
+        ...n,
+        x: (n.tx + 0.5) * TILE_SIZE,
+        y: (n.ty + 0.5) * TILE_SIZE,
+        t: 0,
+      }));
+    this.nearestNpc = null;
   }
 
   // Full boss intro: darken → particles converge → flash + materialize →
@@ -535,8 +724,9 @@ export class Overworld {
       if (c.t > dur * 0.45 && !c._roared) { c._roared = true; audio.play('crit'); audio.play('hurt'); }
       if (c.t >= dur) { c.t = 0; c.phase++; }
     } else if (id === 'reveal') {
-      // Slide name banner down from above
-      c.bannerSlide = Math.max(0, 1 - c.t / 0.65);
+      // Slide name banner down from above — match the ambush banner's
+      // 0.30s slide so all pre-battle banners feel uniform.
+      c.bannerSlide = Math.max(0, 1 - c.t / 0.30);
       if (c.t >= dur) { c.t = 0; c.phase++; }
     } else if (id === 'dialog') {
       if (!c.dialogShown) {
@@ -546,6 +736,302 @@ export class Overworld {
           this.game.enterBossBattle(ev.boss, ev.id);
         });
       }
+    }
+  }
+
+  // ---- Overworld enemies (chapter-1 corridor) -------------------------------
+  // Two state machines depending on `oe._ambush`:
+  //
+  // Ambush mode (corridor default):
+  //   hidden  → triggered (player steps on `trigger` tile; locks input, mobs
+  //             scale up from 0 at their spawn tiles, dust+rustle flourish)
+  //   triggered (0.5s burst pause) → charging (each mob moves toward player)
+  //   charging → collision (any mob within 22px of player) → pre-battle cutscene
+  //
+  // Legacy mode (visible-from-start, kept for back-compat):
+  //   idle → spotted (player within detectRadius) → charging → collision.
+  _updateOverworldEnemies(dt, ow) {
+    for (const oe of this.overworldEnemies) {
+      oe.t += dt;
+      oe.stateT += dt;
+      if (oe._ambush) {
+        if (oe.state === 'hidden') {
+          // Did the player just step on (or into) the trigger region?
+          const tr = oe.trigger;
+          const ptx = Math.floor(ow.x / TILE_SIZE);
+          const pty = Math.floor(ow.y / TILE_SIZE);
+          const w = tr.w ?? 1, h = tr.h ?? 1;
+          if (ptx >= tr.tx && ptx < tr.tx + w
+              && pty >= tr.ty && pty < tr.ty + h) {
+            // If this encounter has a story dialog (e.g. Cal's rescue),
+            // freeze the player and play it BEFORE the wolves burst from
+            // the grass — so the ambush lands on the "here they come" beat
+            // rather than mid-conversation. After dismissal, fall through
+            // to the normal ambush burst.
+            if (oe.preDialog && oe.preDialog.length && !oe._dialogPlayed) {
+              oe._dialogPlayed = true;
+              this.cinematicLock = 999;
+              this.game.ui.showDialog('', oe.preDialog, ['Ready your blade'], () => {
+                this.cinematicLock = 0;
+                oe.state = 'triggered';
+                oe.stateT = 0;
+                audio.play('encounter');
+                for (const mob of oe._spawns) {
+                  this._spawnAmbushBurst(mob.x, mob.y, oe.flourish || 'dust');
+                }
+              });
+              return;
+            }
+            oe.state = 'triggered';
+            oe.stateT = 0;
+            audio.play('encounter');
+            // Burst FX at each spawn tile — rustle + quick shockwave + dust.
+            for (const mob of oe._spawns) {
+              this._spawnAmbushBurst(mob.x, mob.y, oe.flourish || 'dust');
+            }
+          }
+        } else if (oe.state === 'triggered') {
+          // Mobs scale up from 0 to 1 over the burst pause.
+          const burstDur = 0.50;
+          const k = Math.min(1, oe.stateT / burstDur);
+          for (const mob of oe._spawns) mob.scale = k;
+          if (oe.stateT >= burstDur) {
+            oe.state = 'charging';
+            oe.stateT = 0;
+          }
+        } else if (oe.state === 'charging') {
+          const speed = oe.speed ?? 110;
+          let collided = false;
+          for (const mob of oe._spawns) {
+            mob.t += dt;
+            const dx = ow.x - mob.x, dy = ow.y - mob.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 1) {
+              mob.x += (dx / dist) * speed * dt;
+              mob.y += (dy / dist) * speed * dt;
+            }
+            if (dist < 22) collided = true;
+          }
+          if (collided) {
+            this._triggerScriptedEncounter(oe);
+            return;
+          }
+        }
+      } else {
+        // Legacy visible-from-start path.
+        const dx = ow.x - oe._spawns[0].x, dy = ow.y - oe._spawns[0].y;
+        const dist = Math.hypot(dx, dy);
+        oe.facing = Math.atan2(dy, dx);
+        const mob = oe._spawns[0];
+        if (oe.state === 'idle') {
+          const radiusPx = (oe.detectRadius ?? 4) * TILE_SIZE;
+          if (dist < radiusPx) {
+            oe.state = 'spotted';
+            oe.stateT = 0;
+            audio.play('encounter');
+            this.fx.shockwave(mob.x, mob.y, '#ffd84d', 70, 0.4);
+          }
+        } else if (oe.state === 'spotted') {
+          if (oe.stateT >= 0.40) { oe.state = 'charging'; oe.stateT = 0; }
+        } else if (oe.state === 'charging') {
+          const speed = oe.speed ?? 90;
+          if (dist > 1) {
+            mob.x += (dx / dist) * speed * dt;
+            mob.y += (dy / dist) * speed * dt;
+          }
+          if (dist < 22) {
+            this._triggerScriptedEncounter(oe);
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  _spawnAmbushBurst(x, y, flourish) {
+    // Quick rustle + dust kick when mobs spring from grass/bushes. Flourish
+    // colors echo the per-enemy flourish so the burst reads coherent with
+    // the pre-battle cutscene FX that follows.
+    const palette = flourish === 'spore'
+      ? ['#9aaa5b','#3a5a2a','#c8c060']
+      : flourish === 'violet'
+      ? ['#a060ff','#6020a0','#d0a0ff']
+      : ['#d8b070','#8a6028','#5a3a1a'];
+    audio.play('hit');
+    this.fx.shockwave(x, y, palette[0], 90, 0.45);
+    for (let i = 0; i < 22; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 70 + Math.random() * 140;
+      this.fx.spawn({
+        x, y,
+        vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 30,
+        gravity: 220, drag: 0.9,
+        size: 1.4 + Math.random() * 1.4,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        life: 0.6, shrink: true, glow: 4,
+      });
+    }
+  }
+
+  _triggerScriptedEncounter(oe) {
+    this.cinematicLock = 999;
+    audio.stopAmbient();
+    // NOTE: `preDialog` fires up front when the trigger tile is first stepped
+    // on (see _updateOverworldEnemies), so by the time the wolves collide and
+    // we reach here the story beat has already played.
+    this._beginPreBattleCutscene(oe);
+  }
+
+  _beginPreBattleCutscene(oe) {
+    this.preBattleCutscene = {
+      oe,
+      phase: 0,
+      t: 0,
+      cx: oe.x,
+      cy: oe.y,
+      vignette: 0,
+      darkness: 0,
+      bannerSlide: 1,
+      flourishFired: false,
+    };
+  }
+
+  // 4-phase pre-battle cutscene per overworld enemy. Bespoke FX per flourish
+  // type so each fight feels distinct. Banner phase holds long enough for the
+  // player to actually read both the "— ENCOUNTER —" tag and the enemy name
+  // (~0.30s slide-in + ~1.4s settled hold). Total ~2.6s.
+  _updatePreBattleCutscene(dt) {
+    const c = this.preBattleCutscene;
+    c.t += dt;
+    const PHASES = ['darken', 'focus', 'banner', 'enter'];
+    const DURS   = [0.30,     0.35,    1.70,     0.25];
+    const id = PHASES[c.phase];
+    const dur = DURS[c.phase];
+
+    if (id === 'darken') {
+      c.darkness = Math.min(0.55, (c.t / dur) * 0.55);
+      if (c.t >= dur) { c.t = 0; c.phase++; }
+    } else if (id === 'focus') {
+      c.darkness = 0.55;
+      c.vignette = Math.min(1, c.t / dur);
+      if (!c.flourishFired) {
+        c.flourishFired = true;
+        this._playPreBattleFlourish(c.oe.flourish || 'dust', c.cx, c.cy);
+      }
+      if (c.t >= dur) { c.t = 0; c.phase++; }
+    } else if (id === 'banner') {
+      c.darkness = 0.55;
+      c.vignette = 1;
+      c.bannerSlide = Math.max(0, 1 - c.t / 0.30);
+      if (c.t >= dur) { c.t = 0; c.phase++; audio.play('crit'); }
+    } else if (id === 'enter') {
+      c.darkness = 0.55 + (c.t / dur) * 0.45;
+      if (c.t >= dur) {
+        // Hand off to the battle. Set up flag plumbing so the post-fight
+        // victory flows back into defeatedEnemies + postLines surfacing.
+        const oe = c.oe;
+        this.preBattleCutscene = null;
+        this.cinematicLock = 0;
+        if (oe.postLines) this._pendingPostLines = oe.postLines;
+        this.game.enterBattle(
+          oe.encounter.enemyIds,
+          'scripted:' + oe.id,
+          { guest: oe.guest, defeatFlag: oe.id },
+        );
+      }
+    }
+  }
+
+  _playPreBattleFlourish(kind, cx, cy) {
+    if (kind === 'dust') {
+      // Hard dust shockwave + brown debris kicked up.
+      audio.play('hit');
+      this.fx.shockwave(cx, cy, '#d8b070', 220, 0.6);
+      this.fx.shockwave(cx, cy, '#8a6028', 130, 0.45);
+      for (let i = 0; i < 36; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 80 + Math.random() * 160;
+        this.fx.spawn({
+          x: cx, y: cy,
+          vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 40,
+          gravity: 220, drag: 0.9,
+          size: 1.6 + Math.random() * 1.6,
+          color: ['#d8b070','#8a6028','#5a3a1a','#fff5d0'][Math.floor(Math.random()*4)],
+          life: 0.7 + Math.random() * 0.4, shrink: true, glow: 4,
+        });
+      }
+    } else if (kind === 'spore') {
+      // Sour-green spore burst — corruption flavored.
+      audio.play('sporeBurst');
+      this.fx.shockwave(cx, cy, '#9aaa5b', 200, 0.6);
+      this.fx.shockwave(cx, cy, '#5a8030', 110, 0.45);
+      for (let i = 0; i < 40; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 60 + Math.random() * 140;
+        this.fx.spawn({
+          x: cx, y: cy,
+          vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+          gravity: 8, drag: 0.6,
+          size: 1.8 + Math.random() * 1.6,
+          color: ['#9aaa5b','#3a5a2a','#c8c060','#6a7a3b'][Math.floor(Math.random()*4)],
+          life: 1.0 + Math.random() * 0.5, shrink: true, glow: 8,
+        });
+      }
+    } else if (kind === 'violet') {
+      // Violet rift opening — wraith-themed flourish.
+      audio.play('rift');
+      audio.play('aetherWail');
+      this.fx.shockwave(cx, cy, '#a060ff', 240, 0.7);
+      this.fx.shockwave(cx, cy, '#6020a0', 140, 0.5);
+      this.fx.shockwave(cx, cy, '#ffffff', 80, 0.35);
+      for (let i = 0; i < 44; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 90 + Math.random() * 200;
+        this.fx.spawn({
+          x: cx, y: cy,
+          vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+          gravity: 20, drag: 0.6,
+          size: 2 + Math.random() * 1.6,
+          color: ['#a060ff','#6020a0','#d0a0ff','#ffffff'][Math.floor(Math.random()*4)],
+          life: 1.0 + Math.random() * 0.6, shrink: true, glow: 10,
+        });
+      }
+    }
+  }
+
+  _drawPreBattleCutsceneOverlay(ctx) {
+    const c = this.preBattleCutscene;
+    const W = this.game.viewW, H = this.game.viewH;
+    // Darken layer
+    if (c.darkness > 0) {
+      ctx.fillStyle = `rgba(0,0,0,${c.darkness})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    // Banner — slides in from above and lands centered on screen. Mid-screen
+    // placement keeps it clear of the quest objective HUD strip at the top
+    // and gives the encounter a more cinematic punch.
+    if (c.phase >= 2 && c.bannerSlide < 1) {
+      const BH = 100;
+      const settled = H / 2 - BH / 2;
+      const startY = -BH - 20;
+      const yTop = startY + (1 - c.bannerSlide) * (settled - startY);
+      ctx.save();
+      const grad = ctx.createLinearGradient(0, yTop, 0, yTop + BH);
+      grad.addColorStop(0, 'rgba(40,8,8,0.94)');
+      grad.addColorStop(1, 'rgba(120,30,30,0.94)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, yTop, W, BH);
+      ctx.fillStyle = 'rgba(255,138,59,0.85)';
+      ctx.fillRect(0, yTop, W, 2);
+      ctx.fillRect(0, yTop + BH - 2, W, 2);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffd884';
+      ctx.font = 'bold 14px system-ui';
+      ctx.fillText('— ENCOUNTER —', W / 2, yTop + 34);
+      ctx.fillStyle = '#fff5e6';
+      ctx.font = 'bold 26px system-ui';
+      ctx.fillText((c.oe.name || c.oe.id).toUpperCase(), W / 2, yTop + 70);
+      ctx.restore();
     }
   }
 
@@ -898,6 +1384,14 @@ export class Overworld {
     const ents = [
       ...this.npcs.map(n => ({ kind: 'npc', x: n.x, y: n.y, n })),
     ];
+    // Visible overworld enemies — one entity per mob spawn, only when the
+    // ambush has triggered (or it's a legacy visible-from-start enemy).
+    for (const oe of this.overworldEnemies) {
+      if (oe.state === 'hidden') continue;
+      for (const mob of oe._spawns) {
+        ents.push({ kind: 'oenemy', x: mob.x, y: mob.y, oe, mob });
+      }
+    }
     // Leader + followers along the trail, each a real party member sprite.
     const spacingPx = 26;
     for (let i = 0; i < this.game.party.length; i++) {
@@ -914,6 +1408,7 @@ export class Overworld {
     for (const e of ents) {
       if (e.kind === 'player') this._drawPlayer(ctx, e);
       else if (e.kind === 'npc') this._drawNpc(ctx, e.n);
+      else if (e.kind === 'oenemy') this._drawOverworldEnemy(ctx, e.oe, e.mob);
       else if (e.kind === 'boss') this._drawBossInWorld(ctx);
     }
 
@@ -951,6 +1446,17 @@ export class Overworld {
 
     // Boss cutscene overlays (screen-space, drawn over the world).
     if (this.bossCutscene) this._drawBossCutsceneOverlay(ctx);
+    // Fast-forward indicator (visible during the two RAF cutscenes when held).
+    if (this._cutsceneFf) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,216,77,0.95)';
+      ctx.font = 'bold 13px system-ui';
+      ctx.textAlign = 'right';
+      ctx.fillText('▶▶ fast-forward', this.game.viewW - 14, this.game.viewH - 14);
+      ctx.restore();
+    }
+    // Pre-battle cutscene overlay (scripted overworld-enemy fights).
+    if (this.preBattleCutscene) this._drawPreBattleCutsceneOverlay(ctx);
 
     // Atmospheric per-map tint — sits over the world and under the HUD. Skipped
     // during boss cutscenes / encounters so those overlays drive their own
@@ -1075,34 +1581,35 @@ export class Overworld {
       ctx.fillStyle = `rgba(255,255,255,${c.flashAlpha})`;
       ctx.fillRect(0, 0, W, H);
     }
-    // Boss name banner — drops from above, settles at ~38% height.
-    if (c.phase >= 4) {
-      const drop = c.bannerSlide * -180; // pixels above resting position
-      const bannerH = 88;
-      const yTop = H * 0.32 + drop;
+    // Boss name banner — slides from above and settles centered on screen,
+    // matching the ambush pre-battle banner's dimensions, position, and
+    // slide curve exactly (only the color palette differs for the boss).
+    if (c.phase >= 4 && c.bannerSlide < 1) {
+      const BH = 100;
+      const settled = H / 2 - BH / 2;
+      const startY = -BH - 20;
+      const yTop = startY + (1 - c.bannerSlide) * (settled - startY);
       ctx.save();
-      // Backdrop bar
-      ctx.fillStyle = 'rgba(15,5,30,0.85)';
-      ctx.fillRect(0, yTop, W, bannerH);
-      ctx.fillStyle = '#a060ff';
-      ctx.fillRect(0, yTop, W, 3);
-      ctx.fillRect(0, yTop + bannerH - 3, W, 3);
-      // Subtle glow runes on the bar
-      ctx.fillStyle = 'rgba(170,80,255,0.18)';
-      for (let i = 0; i < 8; i++) ctx.fillRect(W * (i / 8) + 8, yTop + 10, W / 16, 4);
-      // Name
+      // Violet gradient + violet accent stripes — boss palette swap of the
+      // ambush banner's red-orange.
+      const grad = ctx.createLinearGradient(0, yTop, 0, yTop + BH);
+      grad.addColorStop(0, 'rgba(15,5,30,0.94)');
+      grad.addColorStop(1, 'rgba(60,20,110,0.94)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, yTop, W, BH);
+      ctx.fillStyle = 'rgba(170,80,255,0.85)';
+      ctx.fillRect(0, yTop, W, 2);
+      ctx.fillRect(0, yTop + BH - 2, W, 2);
       ctx.textAlign = 'center';
-      ctx.shadowColor = '#a060ff';
-      ctx.shadowBlur = 28;
-      ctx.fillStyle = '#f0e0ff';
-      ctx.font = 'bold 34px system-ui';
-      const bannerName = (c.ev.bannerName || c.warden?.name || 'BOSS').toUpperCase();
-      ctx.fillText(bannerName, W / 2, yTop + 50);
-      // Subtitle
-      ctx.shadowBlur = 10;
+      // Small subtitle tag on top — same font + Y offset as "— ENCOUNTER —"
       ctx.fillStyle = '#c0a0ff';
-      ctx.font = 'bold 12px system-ui';
-      ctx.fillText(c.ev.bannerSub || '— sent by The Sundered —', W / 2, yTop + 70);
+      ctx.font = 'bold 14px system-ui';
+      ctx.fillText((c.ev.bannerSub || '— sent by The Sundered —').toUpperCase(), W / 2, yTop + 34);
+      // Big name below — same font + Y offset as the ambush enemy name
+      ctx.fillStyle = '#f0e0ff';
+      ctx.font = 'bold 26px system-ui';
+      const bannerName = (c.ev.bannerName || c.warden?.name || 'BOSS').toUpperCase();
+      ctx.fillText(bannerName, W / 2, yTop + 70);
       ctx.restore();
     }
   }
@@ -1196,6 +1703,28 @@ export class Overworld {
     ctx.strokeText(n.name, n.x, n.y + 26);
     ctx.fillText(n.name, n.x, n.y + 26);
   }
+
+  _drawOverworldEnemy(ctx, oe, mob) {
+    ctx.save();
+    ctx.translate(mob.x, mob.y);
+    // Angry red halo on legacy 'spotted' state — small read-cue before charge.
+    if (oe.state === 'spotted') {
+      const pulse = 0.5 + 0.5 * Math.sin(oe.stateT * 18);
+      ctx.fillStyle = `rgba(255,60,60,${0.25 + pulse * 0.2})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Face the player (mirror if charging right-to-left).
+    const dx = (this.game.player.overworld.x ?? mob.x) - mob.x;
+    if (dx < 0) ctx.scale(-1, 1);
+    // Ambush mobs scale up from 0 during the burst pause; legacy/visible
+    // mobs are always at scale 1.
+    const s = mob.scale ?? 1;
+    if (s !== 1) ctx.scale(s, s);
+    drawOverworldEnemy(ctx, { spriteId: mob.spriteId }, mob.t || oe.t, 20);
+    ctx.restore();
+  }
 }
 
 function darker(hex) {
@@ -1221,14 +1750,15 @@ function pickEncounter(pool, partySize = 1) {
     const n = e.enemyIds.length;
     let mult;
     if (partySize <= 1) {
-      // Solo hero: prefer single targets; trios are rare.
-      mult = n === 1 ? 1.4 : n === 2 ? 0.7 : n === 3 ? 0.15 : 0.05;
+      // Solo hero: almost always 1, occasionally 2, never more.
+      mult = n === 1 ? 1.4 : n === 2 ? 0.6 : 0.04;
     } else if (partySize === 2) {
-      // Two-member party: 2s most common, 1s and 3s frequent, 4s rare.
-      mult = n === 1 ? 0.9 : n === 2 ? 1.1 : n === 3 ? 0.8 : 0.3;
+      // Two-member party: 3s most common; 2s and 4s frequent; 1s and 5+ rare.
+      mult = n === 1 ? 0.25 : n === 2 ? 1.0 : n === 3 ? 1.4 : n === 4 ? 0.7 : 0.1;
     } else {
-      // Full party (3+): 3s normal, 4–5s appear regularly, 6s rare.
-      mult = n <= 2 ? 0.45 : n === 3 ? 1.1 : n === 4 ? 1.0 : n === 5 ? 0.8 : 0.5;
+      // Full party (3+): 3s and 4s dominate; 5s common; 6s steady; 1-2s scarce.
+      mult = n === 1 ? 0.05 : n === 2 ? 0.15
+        : n === 3 ? 1.1 : n === 4 ? 1.2 : n === 5 ? 1.0 : 0.75;
     }
     return (e.weight || 1) * mult;
   };

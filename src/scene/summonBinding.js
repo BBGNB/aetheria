@@ -60,8 +60,16 @@ export class SummonBinding {
 
   _tick(now) {
     if (!this.running) return;
-    const dt = Math.min(0.05, (now - this.lastT) / 1000);
+    let dt = Math.min(0.05, (now - this.lastT) / 1000);
     this.lastT = now;
+    // Hold to fast-forward (>350ms press) — quick taps still skip via onTap.
+    if (this.input.active) {
+      this._pressT = (this._pressT || 0) + dt;
+      if (this._pressT > 0.35) { dt *= 4; this._ffActive = true; }
+    } else {
+      this._pressT = 0;
+      this._ffActive = false;
+    }
     this.t += dt;
     this._shake = Math.max(0, this._shake - dt * 28);
     this.fx.update(dt);
@@ -122,12 +130,19 @@ export class SummonBinding {
 
     ctx.restore();
 
-    // Skip hint — drawn last, in screen space, fades after first 6s.
-    const hintAlpha = Math.max(0.15, 0.7 - this.t / 8);
-    ctx.fillStyle = `rgba(255,255,255,${hintAlpha})`;
-    ctx.font = '11px system-ui';
-    ctx.textAlign = 'right';
-    ctx.fillText('tap to skip', W - 14, H - 14);
+    // Skip / fast-forward hint
+    if (this._ffActive) {
+      ctx.fillStyle = 'rgba(255,216,77,0.95)';
+      ctx.font = 'bold 13px system-ui';
+      ctx.textAlign = 'right';
+      ctx.fillText('▶▶ fast-forward', W - 14, H - 14);
+    } else {
+      const hintAlpha = Math.max(0.15, 0.7 - this.t / 8);
+      ctx.fillStyle = `rgba(255,255,255,${hintAlpha})`;
+      ctx.font = '11px system-ui';
+      ctx.textAlign = 'right';
+      ctx.fillText('tap to skip · hold to fast-forward', W - 14, H - 14);
+    }
   }
 
   // ---- Background per phase ------------------------------------------------

@@ -98,6 +98,29 @@ export function findLinkerFor(equipInstance, sourceSlotIdx) {
   return linkers[0] || null;
 }
 
+// "Lone linker" — a linker gem in a linked socket pair where every OTHER
+// slot in its link group is empty. Used to amplify CLASS-TREE skills (where
+// there is no source gem to pair with) — e.g. a Black Mage equips echoingSigil
+// alone in a linked pair, and their native Fira gets AoE'd. Cost: that
+// socket cannot hold a partner gem.
+export function findLoneLinkers(equipped) {
+  const out = [];
+  for (const slot of ['weapon', 'armor', 'accessory']) {
+    const inst = equipped?.[slot];
+    if (!inst?.gems || !inst.template?.linkedSlots) continue;
+    for (const group of inst.template.linkedSlots) {
+      for (const idx of group) {
+        const g = inst.gems[idx];
+        if (!g?.template?.linker) continue;
+        // Lone if every OTHER slot in this group is empty.
+        const others = group.filter(j => j !== idx);
+        if (others.every(j => !inst.gems[j])) out.push(g);
+      }
+    }
+  }
+  return out;
+}
+
 // Given a gem instance and the equipment it lives in, find which slot it
 // occupies (or -1 if not slotted there).
 export function slotIdxOf(equipInstance, gemInstance) {

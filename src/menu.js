@@ -237,11 +237,15 @@ export class OverworldMenu {
         : '';
       const mpText = skill.kind === 'passive' ? 'passive' : `${skill.cost} MP`;
 
+      // Always surface the level requirement in the right-side tag so the
+      // player can see at a glance when a skill unlocks — not just when it's
+      // already at the level-lock state.
+      const lvTag = node.levelReq ? `Lv ${node.levelReq} · ` : '';
       let right;
       if (state === 'learned')        right = `<div class="tag">✓ Learned · ${mpText}</div>`;
-      else if (state === 'available') right = `<div class="actions"><button>${node.cost} SP</button></div>`;
+      else if (state === 'available') right = `<div class="actions"><button>${lvTag}${node.cost} SP</button></div>`;
       else if (state === 'levelLocked') right = `<div class="tag">🔒 Lv ${node.levelReq} · ${node.cost} SP</div>`;
-      else                            right = `<div class="tag">🔒 ${node.cost} SP</div>`;
+      else                            right = `<div class="tag">🔒 ${lvTag}${node.cost} SP</div>`;
 
       const row = document.createElement('div');
       const rowCls = state === 'learned' ? ' equipped' : (state === 'locked' || state === 'levelLocked') ? ' disabled' : '';
@@ -596,10 +600,11 @@ export class OverworldMenu {
     if (tmpl.summon && grantNames.length) {
       parts.push(`Summon: ${grantNames[0]}`);
     } else if (tmpl.linker) {
-      const label = tmpl.linkerEffect === 'all'     ? 'AoE on linked spell'
-                  : tmpl.linkerEffect === 'double'  ? '2× cast on linked spell'
-                  : tmpl.linkerEffect === 'quad'    ? '4× cast on linked spell'
-                  : tmpl.linkerEffect === 'counter' ? 'Counter when hit'
+      const label = tmpl.linkerEffect === 'all'        ? 'AoE on linked spell'
+                  : tmpl.linkerEffect === 'double'     ? '2× cast on linked spell'
+                  : tmpl.linkerEffect === 'quad'       ? '4× cast on linked spell'
+                  : tmpl.linkerEffect === 'counter'    ? 'Counter when struck'
+                  : tmpl.linkerEffect === 'preemptive' ? 'Auto-cast on battle start'
                   : 'Linker';
       parts.push(label);
     } else if (grantNames.length) {

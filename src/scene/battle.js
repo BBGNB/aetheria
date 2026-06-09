@@ -2,7 +2,7 @@ import { createEnemyInstance } from '../data/enemies.js';
 import { SKILL_BY_ID } from '../data/skills.js';
 import { ITEM_BY_ID } from '../data/items.js';
 import { STATUS_BY_ID } from '../data/statuses.js';
-import { findAllLinkersFor, slotIdxOf } from '../data/equipment.js';
+import { findAllLinkersFor, linkGroupFor, slotIdxOf } from '../data/equipment.js';
 import { matchCombos } from '../data/combos.js';
 import { audio } from '../audio.js';
 import { clamp } from '../util.js';
@@ -88,11 +88,43 @@ function makeBattleMember(ref) {
   return m;
 }
 
+// Transient guest ally — joins for one battle only, never written to save,
+// excluded from XP rewards. Stats scale to the current party's average level
+// so they feel right at any chapter. Currently used by Cal in chapter 1.
+function makeGuestMember(guestId, party) {
+  if (guestId === 'cal') {
+    const avg = Math.max(1, Math.round(
+      party.reduce((s, m) => s + (m.ref?.level || 1), 0) / Math.max(1, party.length)
+    ));
+    const maxHp = 60 + avg * 8;
+    const maxMp = 10 + avg * 2;
+    return {
+      kind: 'player', ref: null, name: 'Cal', classId: 'cal',
+      hp: maxHp, maxHp, mp: maxMp, maxMp,
+      atk: 12 + avg * 2, def: 6 + avg, mag: 4, spd: 8 + avg,
+      // Bespoke hunter kit — just the two knife skills. Out of MP he uses
+      // the basic Attack command.
+      skills: ['throatStrike', 'hamstring'],
+      defending: false, dead: false, shake: 0, hitFlash: 0,
+      phoenixCharged: null, statuses: [],
+      attackStatus: null, atbMult: 1, counterSkill: null, counterLinkers: [],
+      _screenX: 0, _screenY: 0,
+      isGuest: true,
+    };
+  }
+  return null;
+}
+
 export class Battle {
-  constructor(game, enemyIds, overworldKey) {
+  constructor(game, enemyIds, overworldKey, opts = {}) {
     this.game = game;
     this.overworldKey = overworldKey;
     this.party = game.party.map(makeBattleMember);
+    // Guest ally — append to the battle party only; not persisted.
+    if (opts.guest) {
+      const guest = makeGuestMember(opts.guest, this.party);
+      if (guest) this.party.push(guest);
+    }
     this.enemies = enemyIds.map(id => createEnemyInstance(id));
 
     this.state = 'intro';
@@ -133,6 +165,9 @@ export class Battle {
       'echoFirstSong','veilCrawler','hollowKing','sapphireTide','sunderedHeart','auroraThrone','verdantColossus',
       // Endgame 3-element fusions — get the full tier-4 cinematic stack.
       'tideTriad','causticCataract',
+      // Step-3 endgame ultimates
+      'worldbreaker','soulPierce','phantomVolley','adamantRoar','hawksEmbrace',
+      'pillarOfJudgement','triDisaster','cataclysmicSlam','massCure',
       'frostBramble','sanctifiedPrism','venomspire','hellstorm','wildfireTempest',
       'abyssalSteam','greenfireTide','hallowedPyre','wretchedBloom','inquisitorBrand',
       'polarTempest','briarTempest','haloStorm','acidFrostBolt','drownedGlacier',
@@ -145,7 +180,7 @@ export class Battle {
     const t3 = new Set([
       // -ga endings + curaga + heavy phys finishers
       'firaga','blizzaga','thundaga','waterga','blightga','thornga','holyga','bioga','curaga',
-      'snipe','hailstorm','crusher','multishot','aimedVolley','whirlwind',
+      'snipe','hailstorm','crusher','multishot','whirlwind','earthshaker',
       // 2-gem rare/strong combo fusions
       'duality','plagueGrove','eclipseLullaby','hellfire','wildfire','wildbloom',
       'toxinflood','napalm','solarFlare','deluge','monsoon','rotbloom','voidlight',
@@ -298,7 +333,9 @@ export class Battle {
   // linkers (double / quad) take the higher — they don't multiply (no 8×).
   // AoE applies once. 'counter' is passive and is filtered out here.
   _composeLinkers(baseSkill, linkerEffects) {
-    const fxs = linkerEffects.filter(fx => fx !== 'counter');
+    // counter (passive — retaliate-on-hit) and preemptive (auto-cast at battle
+    // start) don't modify the spell shape itself, just when it fires.
+    const fxs = linkerEffects.filter(fx => fx !== 'counter' && fx !== 'preemptive');
     if (!fxs.length) return baseSkill;
     let aoe = false;
     let castMult = 1;
@@ -4423,7 +4460,151 @@ export class Battle {
     // Even start so the first turn is just a matter of who's fastest.
     for (const c of this.party) c.atb = 0;
     for (const e of this.enemies) e.atb = 0;
-    this.state = 'waiting';
+    // Vanguard Sigil preemptive casts — defer one frame so the scene draws at
+    // least once and computes _screenX/_screenY for each member (FX position
+    // is anchored to the caster). If no preemptives, just go straight to
+    // 'waiting' so ATB can start.
+    const preempts = this._collectPreemptiveCasts();
+    if (preempts.length) {
+      this.state = 'animating';
+      this._delay(0.10, () => {
+        this._runPreemptiveQueue(preempts, 0, () => { this.state = 'waiting'; });
+      });
+    } else {
+      this.state = 'waiting';
+    }
+  }
+
+  // Walk each living party member's gear for vanguardSigil linkers. For each
+  // Vanguard, find the spell-granting partner in the same linked socket group
+  // and queue an auto-cast of that partner's highest-tier spell.
+  _collectPreemptiveCasts() {
+    const out = [];
+    for (const member of this.party) {
+      if (member.dead || member.hp <= 0 || !member.ref?.equipped) continue;
+      for (const slot of ['weapon', 'armor', 'accessory']) {
+        const inst = member.ref.equipped[slot];
+        if (!inst?.gems) continue;
+        for (let i = 0; i < inst.gems.length; i++) {
+          const gem = inst.gems[i];
+          if (gem?.template?.linkerEffect !== 'preemptive') continue;
+          // Use the transitive link group (`[[0,1],[1,2]]` resolves to
+          // [0,1,2]) so Vanguard in slot 0 sees a partner in slot 2.
+          const group = linkGroupFor(inst, i);
+          if (!group) continue;
+          const spellId = this._pickPreemptiveSpell(inst, group, i);
+          if (spellId) out.push({ caster: member, spellId });
+        }
+      }
+    }
+    return out;
+  }
+
+  // Choose the highest-tier spell the Vanguard's partner gems can cast in this
+  // link group. Combo first (Fire+Ice in linked group → Steam Burst beats just
+  // Fire on its own), then highest single-gem grant as fallback.
+  _pickPreemptiveSpell(inst, group, vanguardIdx) {
+    const partnerGems = group
+      .filter(j => j !== vanguardIdx)
+      .map(j => inst.gems[j])
+      .filter(g => g && !g.template.linker);
+    if (!partnerGems.length) return null;
+    const partnerIds = partnerGems.map(g => g.id);
+    // 1. Combos that all sit in the link group — prefer the largest (most gems = highest tier).
+    const combos = matchCombos(partnerIds);
+    if (combos.length) {
+      const best = [...combos].sort((a, b) => b.gems.length - a.gems.length)[0];
+      if (best.grants?.length) return best.grants[0];
+    }
+    // 2. Otherwise pick the highest-tier single-gem grant across partners.
+    for (const partner of partnerGems) {
+      const lv = Math.min(partner.level, partner.template.maxLevel);
+      for (let l = lv; l >= 1; l--) {
+        const grants = partner.template.grantsByLevel?.[l] || [];
+        if (grants.length) return grants[grants.length - 1];
+      }
+    }
+    return null;
+  }
+
+  _runPreemptiveQueue(queue, idx, onDone) {
+    if (idx >= queue.length) { onDone(); return; }
+    // If a prior preemptive already ended the battle, stop the queue —
+    // don't fire more spells into corpses or trigger victory twice.
+    if (this._checkEnd()) { onDone(); return; }
+    this._runOnePreemptive(queue[idx], () => {
+      this._delay(0.45, () => this._runPreemptiveQueue(queue, idx + 1, onDone));
+    });
+  }
+
+  // Execute a single Vanguard auto-cast. Resolves linkers (so a chained
+  // Echoing/Mirrored/Prism stacks correctly), pays MP, then applies the
+  // spell using a streamlined version of the standard cast pipeline.
+  _runOnePreemptive({ caster, spellId }, onDone) {
+    const skill = this._resolveLinkers(spellId, caster);
+    if (!skill) { onDone(); return; }
+    if ((caster.mp || 0) < (skill.cost || 0)) {
+      this._addLog(`${caster.name}'s Vanguard sputters — not enough MP for ${skill.name}.`);
+      onDone();
+      return;
+    }
+    caster.mp -= skill.cost || 0;
+    this._addLog(`${caster.name}'s Vanguard fires — ${skill.name}!`);
+    audio.play('confirm');
+    // Brief caster aura
+    const cx = caster._screenX || 0, cy = caster._screenY || 0;
+    this.fx.magicCircle(cx, cy, '#ffb070', 0.4, 1.0);
+    this.fx.shockwave(cx, cy, '#ffb070', 60, 0.4);
+    // Cast count (mirrored=2, prism=4 — preemptive itself doesn't multiply)
+    const lk = skill._linker || '';
+    const casts = lk.includes('quad') ? 4 : lk.includes('double') ? 2 : 1;
+    const dispatchOne = (cb) => {
+      if (skill.kind === 'buff') {
+        const targets = skill.target === 'all'
+          ? this.party.filter(m => !m.dead)
+          : [caster];
+        for (const t of targets) {
+          if (skill.buffStatus) {
+            this._applyStatus(t, skill.buffStatus.id, { duration: skill.buffStatus.duration });
+          }
+          if (skill.healAmount && !t.dead) this._healMember(t, skill.healAmount);
+        }
+        this._delay(0.35, cb);
+        return;
+      }
+      if (skill.kind === 'heal') {
+        const targets = skill.target === 'all'
+          ? this.party.filter(m => !m.dead)
+          : [caster];
+        for (const t of targets) {
+          this.fx.healingMotes?.(t._screenX, t._screenY, 1.0);
+          this._healMember(t, skill.power || 0);
+        }
+        this._delay(0.35, cb);
+        return;
+      }
+      // attack / magic — 'all' hits every live enemy, single-target picks a
+      // RANDOM live enemy (player has no control over auto-casts, so a fixed
+      // pick like "always slot 0" feels arbitrary).
+      const dmgBase = skill.kind === 'magic' ? caster.mag : caster.atk;
+      const live = this.enemies.filter(e => !e.dead);
+      const targets = skill.target === 'all'
+        ? live
+        : (live.length ? [live[Math.floor(Math.random() * live.length)]] : []);
+      for (const t of targets) {
+        this._playSpellHit(skill, t);
+        this._applyDamage(caster, t, dmgBase * (skill.power || 1), skill.element, skill);
+      }
+      this._delay(0.35, cb);
+    };
+    const repeat = (n, fn, done) => {
+      if (n <= 0) { done(); return; }
+      // Bail out of multi-cast (e.g., 4× preemptive Ultima) the moment the
+      // field is cleared — no point repeating into corpses.
+      if (this._checkEnd()) { done(); return; }
+      fn(() => this._delay(0.15, () => repeat(n - 1, fn, done)));
+    };
+    repeat(casts, dispatchOne, onDone);
   }
 
   _advanceAtb(dt) {
@@ -4534,8 +4715,21 @@ export class Battle {
       this.state = 'over';
       let xp = 0, gold = 0;
       const drops = [];
+      // Average level of the living party, used to scale down XP for kills
+      // that are well below the player's level — discourages back-zone farming.
+      // Guests don't count — they have no level and they don't earn XP either.
+      const livingParty = this.party.filter(m => m.hp > 0 && !m.isGuest);
+      const partyAvg = livingParty.length
+        ? livingParty.reduce((s, m) => s + (m.ref?.level || 1), 0) / livingParty.length
+        : 1;
       for (const e of this.enemies) {
-        xp += e.template.xp;
+        const diff = partyAvg - (e.template.level || 1);
+        let mult = 1;
+        if (diff > 2) {
+          // 1.0 within 2 levels; falls off to 0 at +6 below party.
+          mult = Math.max(0, 1 - (diff - 2) * 0.25);
+        }
+        xp += Math.floor(e.template.xp * mult);
         gold += e.template.gold;
         for (const d of (e.template.drops || [])) {
           if (Math.random() < d.chance) drops.push({ kind: d.kind, id: d.id });
@@ -4570,6 +4764,12 @@ export class Battle {
     this.state = 'animating';
     this.game.ui.closeBattleMenu();
     this._pickTarget(target => {
+      // Ranger's normal attack defers damage until the arrow lands, so it
+      // also owns the turn-end. Other classes hit instantly + end immediately.
+      if (this.actor.classId === 'ranger') {
+        this._doRangerShot(this.actor, target, this.actor.atk * 1.0, 'phys');
+        return;
+      }
       this.fx.slashHit(target._screenX, target._screenY);
       this._doAttack(this.actor, target, this.actor.atk * 1.0, 'phys');
       this._endActorTurn();
@@ -4610,6 +4810,18 @@ export class Battle {
           launch([target]);
         });
       }
+      return;
+    }
+    // Ranger archery — single-target shots get a bespoke aim+arrow cinematic
+    // so they read distinctly from a melee skill cast.
+    if (skill.id === 'aimedShot' && this.actor.classId === 'ranger') {
+      this._castAimedShot(skill);
+      return;
+    }
+    // Cleave — physical sweeping strike. Bespoke sword-arc visual; bypass the
+    // tier-2 projectile flow so it doesn't look identical to a magic cast.
+    if (skill.id === 'cleave') {
+      this._castCleave(skill);
       return;
     }
     if (skill.kind === 'attack' || skill.kind === 'magic') {
@@ -4743,6 +4955,9 @@ export class Battle {
           launch([target]);
         });
       }
+    } else if (skill.kind === 'buff') {
+      this._castPartyBuff(skill);
+      return;
     } else if (skill.kind === 'heal') {
       const launch = (targets) => {
         this.actor.mp -= skill.cost;
@@ -4779,19 +4994,28 @@ export class Battle {
             // Bespoke combo signature on the recipient too — Worldtree, Lifeburst,
             // Benediction etc. trigger their unique visuals here.
             this._playComboSignature(skill, t._screenX, t._screenY, scale);
+            // Revive flag — heals targeting dead allies bring them back.
+            if (skill.revive && t.dead) {
+              t.dead = false;
+              t.hp = 0;
+              this._addLog(`${t.name} returns to the fight!`);
+              audio.play('victory');
+            }
             this._healMember(t, skill.power);
           }
           this._delay(0.32, () => this._endActorTurn());
         });
       };
+      // Revive-tagged heals also see dead allies as valid targets.
+      const livePartyFilter = skill.revive ? (m => true) : (m => !m.dead);
       if (skill.target === 'all') {
         this._addLog(`${this.actor.name} casts ${skill.name}!`);
-        launch(this.party.filter(m => !m.dead));
+        launch(this.party.filter(livePartyFilter));
       } else {
         this._pickTarget(target => {
           this._addLog(`${this.actor.name} casts ${skill.name} on ${target.name}!`);
           launch([target]);
-        }, 'party');
+        }, skill.revive ? 'partyAll' : 'party');
       }
     } else if (skill.kind === 'cleanse') {
       const launch = (targets) => {
@@ -4952,9 +5176,12 @@ export class Battle {
 
   // side: 'enemies' (default) or 'party'
   _pickTarget(cb, side = 'enemies') {
-    const pool = side === 'party'
-      ? this.party.filter(p => !p.dead)
-      : this.enemies.filter(e => !e.dead);
+    // 'partyAll' includes dead allies (used by revive skills).
+    const pool = side === 'partyAll'
+      ? this.party.slice()
+      : side === 'party'
+        ? this.party.filter(p => !p.dead)
+        : this.enemies.filter(e => !e.dead);
     if (pool.length === 0) return;
     if (pool.length === 1) { cb(pool[0]); return; }
     this.state = 'targetSelect';
@@ -5023,6 +5250,9 @@ export class Battle {
       case 'thornLash':       return this._enemyThornLash(e, targets);
       case 'sporeBloom':      return this._enemySporeBloom(e, targets);
       case 'aetherWail':      return this._enemyAetherWail(e, targets);
+      case 'shardVolley':     return this._enemyShardVolley(e, targets);
+      case 'riftCataclysm':   return this._enemyRiftCataclysm(e, targets);
+      case 'phaseTransition': return this._enemyPhaseTransition(e, action.toPhase);
       default:                return this._enemyBasicAttack(e, targets);
     }
   }
@@ -5167,11 +5397,515 @@ export class Battle {
     });
   }
 
+  // --- Hollow Warden phase attacks ------------------------------------------
+
+  // Shard Volley — three jagged shards detach from the Warden and slam into
+  // random party members. Lower per-hit damage but spread; pressures the
+  // back line. Phase 2+ rotation entry.
+  _enemyShardVolley(e, targets) {
+    this._addLog(`${e.name} flings a volley of shards!`);
+    this.fx.magicCircle(e._screenX, e._screenY, '#a060ff', 0.45, 1.6);
+    audio.play('magic');
+    const hits = 3;
+    for (let i = 0; i < hits; i++) {
+      this._delay(0.30 + i * 0.18, () => {
+        const live = this.party.filter(c => !c.dead);
+        if (!live.length) return;
+        const t = live[Math.floor(Math.random() * live.length)];
+        // Shard launch trail from boss to target
+        this.fx.castProjectile(
+          e._screenX, e._screenY, t._screenX, t._screenY, '#a060ff', 0.20,
+          () => {
+            if (t.dead) return;
+            this.fx.slashHit(t._screenX, t._screenY, Math.PI / 4 + i * 0.6);
+            this.fx.shockwave(t._screenX, t._screenY, '#a060ff', 72, 0.36);
+            this.fx.shockwave(t._screenX, t._screenY, '#ffffff', 38, 0.28);
+            this.battleShake = Math.max(this.battleShake, 5);
+            audio.play('hit');
+            this._applyDamage(e, t, e.atk * 0.85, 'phys');
+          },
+        );
+      });
+    }
+    this._delay(0.30 + hits * 0.18 + 0.7, () => this._endActorTurn());
+  }
+
+  // Rift Cataclysm — Phase-3 signature. Full-party AoE; high damage; ~30%
+  // stun chance per target. The whole arena flashes violet, shards rain from
+  // the rift overhead.
+  _enemyRiftCataclysm(e, targets) {
+    this._addLog(`${e.name} tears a Rift open above the battlefield!`);
+    // Big windup — caster aura, ground sigil, sky beam descending into boss
+    this.fx.casterAura(e._screenX, e._screenY, '#a060ff', 0.85, 1.5);
+    this.fx.groundSigil(e._screenX, e._screenY, '#a060ff', 'dark', 1.2, 1.6);
+    this.fx.castCharge(e._screenX, e._screenY, '#ff80b0', 1.4);
+    this.fx.screenFlash('#5a1a8a', 0.25, 0.7);
+    audio.play('magic');
+    audio.play('rift');
+    this.battleShake = Math.max(this.battleShake, 8);
+    this._delay(0.95, () => {
+      this._addLog('Reality fractures — shards rain down on the party!');
+      this.fx.screenFlash('#ffffff', 0.40, 0.30);
+      this.fx.screenFlash('#a060ff', 0.55, 0.55);
+      audio.play('crit');
+      audio.play('aetherWail');
+      this.battleShake = Math.max(this.battleShake, 16);
+      for (const t of targets) {
+        if (t.dead) continue;
+        // Shard impact at each target — bigger, denser than Veil Pulse
+        for (let i = 0; i < 18; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const sp = 80 + Math.random() * 140;
+          this.fx.spawn({
+            x: t._screenX, y: t._screenY,
+            vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 30,
+            gravity: 100, drag: 1.1,
+            size: 2.4 + Math.random() * 1.2,
+            color: ['#a060ff', '#ff5a8a', '#ffffff', '#3a0a4a'][Math.floor(Math.random() * 4)],
+            life: 0.7 + Math.random() * 0.4, shrink: true, glow: 9,
+          });
+        }
+        this.fx.shockwave(t._screenX, t._screenY, '#a060ff', 140, 0.65);
+        this.fx.shockwave(t._screenX, t._screenY, '#ff80b0', 80, 0.45);
+        this._applyDamage(e, t, e.mag * 1.45, 'dark');
+        if (!t.dead && Math.random() < 0.30) {
+          this._applyStatus(t, 'stun', { duration: 1 });
+        }
+      }
+      this._delay(0.9, () => this._endActorTurn());
+    });
+  }
+
+  // Phase transition — short in-battle cinematic. Burns the boss's turn so
+  // the player gets a free beat to set up. Aura collapse → visual mutation
+  // → log dialog. Player input remains locked (state: animating) throughout.
+  _enemyPhaseTransition(e, toPhase) {
+    const phaseName = toPhase === 2 ? 'Fractured Form' : 'Unbound Form';
+    this._addLog(`The Warden's bindings strain. Its silhouette starts to mutate.`);
+    audio.play('rift');
+    audio.play('bossThump');
+    // Stage 1 (0s): aura collapse — flash, shake, particles burst outward
+    this.fx.screenFlash('#a060ff', 0.45, 0.55);
+    this.battleShake = Math.max(this.battleShake, 14);
+    e.shake = 0.9;
+    for (let i = 0; i < 50; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 100 + Math.random() * 180;
+      this.fx.spawn({
+        x: e._screenX, y: e._screenY,
+        vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        gravity: 0, drag: 0.45,
+        size: 2.2 + Math.random() * 1.6,
+        color: ['#a060ff', '#3a1a6a', '#d0a0ff', '#ffffff'][Math.floor(Math.random() * 4)],
+        life: 0.8 + Math.random() * 0.4, shrink: true, glow: 10,
+      });
+    }
+    this.fx.shockwave(e._screenX, e._screenY, '#a060ff', 220, 0.85);
+    // Stage 2 (0.7s): mutation — sprite phase flips, audio sting, re-form burst
+    this._delay(0.7, () => {
+      // The visible mutation moment — drawWarden will now render the new form
+      // because e._phase has already been set by the AI function.
+      audio.play('aetherWail');
+      audio.play('crit');
+      this.fx.screenFlash(toPhase === 3 ? '#ff5a8a' : '#a060ff', 0.50, 0.45);
+      this.battleShake = Math.max(this.battleShake, 18);
+      // Re-form: particles RACE inward to the boss
+      for (let i = 0; i < 60; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 200 + Math.random() * 80;
+        this.fx.spawn({
+          x: e._screenX + Math.cos(ang) * dist,
+          y: e._screenY + Math.sin(ang) * dist,
+          vx: -Math.cos(ang) * 240, vy: -Math.sin(ang) * 240,
+          gravity: 0, drag: 0.35,
+          size: 1.8 + Math.random() * 1.4,
+          color: toPhase === 3
+            ? ['#ff5a8a', '#a060ff', '#ffffff', '#3a0a1a'][Math.floor(Math.random() * 4)]
+            : ['#a060ff', '#ffb070', '#ffffff', '#3a1a6a'][Math.floor(Math.random() * 4)],
+          life: 0.55, shrink: true, glow: 12,
+        });
+      }
+      this.fx.shockwave(e._screenX, e._screenY, '#ffffff', 140, 0.55);
+    });
+    // Stage 3 (1.6s): name banner / log line — Lyra calls it out
+    this._delay(1.6, () => {
+      this._addLog(`The Warden assumes its ${phaseName}!`);
+      const lyra = this.party.find(p => p.name === 'Lyra' || p.classId === 'white');
+      if (toPhase === 2) {
+        this._addLog(lyra
+          ? 'Lyra: "It\'s reshaping itself — don\'t let it stabilize!"'
+          : 'Its edges no longer follow any law you can name.');
+      } else {
+        this._addLog(lyra
+          ? 'Lyra: "The song inside is breaking. This is what Vael does. Strike NOW!"'
+          : 'The thing on the rift has more eyes than it should. They all see you.');
+      }
+    });
+    this._delay(2.6, () => this._endActorTurn());
+  }
+
   // --- Damage / Heal ---------------------------------------------------------
 
   _doAttack(attacker, defender, power, element) {
+    // Ranger party members fire a real arrow instead of lunging in melee.
+    if (attacker.classId === 'ranger' && this.party.includes(attacker)) {
+      this._doRangerShot(attacker, defender, power, element);
+      return;
+    }
     this.attackAnim = { attacker, t: 0, dur: 0.35 };
     this._applyDamage(attacker, defender, power, element);
+  }
+
+  _doRangerShot(attacker, defender, power, element) {
+    // Three beats: draw (0.22s) → release + arrow flight (0.30s) → settle (0.10s)
+    const drawDur = 0.22, flightDur = 0.30, settleDur = 0.10;
+    const isPlayer = this.party.includes(attacker);
+    this.attackAnim = { attacker, t: 0, dur: drawDur + flightDur + settleDur, kind: 'bow', drawDur };
+    audio.play('menu'); // string-pull tick during draw
+    setTimeout(() => {
+      // Release point — spawn arrow and a small string-vibration spark.
+      const fromX = attacker._screenX || 0;
+      const fromY = (attacker._screenY || 0) - 12;
+      const toX = defender._screenX || 0;
+      const toY = (defender._screenY || 0) - 8;
+      this._spawnArrow(fromX, fromY, toX, toY, flightDur);
+      for (let i = 0; i < 4; i++) {
+        this.fx.spawn({
+          x: fromX, y: fromY,
+          vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30,
+          gravity: 30, drag: 1.2, size: 1.4, color: '#d8c89a',
+          life: 0.25, shrink: true, glow: 4,
+        });
+      }
+      audio.play('hit');
+      setTimeout(() => {
+        this._applyDamage(attacker, defender, power, element);
+        // Player rangers own their turn-end here since the arrow is deferred —
+        // otherwise the killing blow on the last enemy never triggers victory.
+        if (isPlayer) {
+          this._delay(settleDur + 0.05, () => this._checkEnd() || this._endActorTurn());
+        }
+      }, flightDur * 1000);
+    }, drawDur * 1000);
+  }
+
+  _castAimedShot(skill) {
+    // Beats: aim/reticle hold (0.55s) → release + arrow flight (0.35s) → settle (0.15s)
+    this._pickTarget(target => {
+      this.actor.mp -= skill.cost;
+      this._addLog(`${this.actor.name} takes aim — ${skill.name}.`);
+      const aimDur = 0.55, flightDur = 0.35, settleDur = 0.15;
+      const totalDur = aimDur + flightDur + settleDur;
+      this.attackAnim = { attacker: this.actor, t: 0, dur: totalDur, kind: 'bow', drawDur: aimDur };
+      const fromX = this.actor._screenX || 0;
+      const fromY = (this.actor._screenY || 0) - 14;
+      const tx = target._screenX || 0;
+      const ty = (target._screenY || 0) - 4;
+      audio.play('confirm');
+      // Reticle / target sigil throughout the aim phase.
+      this.fx.targetSigil(tx, ty, '#ffd84d', 'phys', aimDur, 1.2);
+      this.fx.shape(aimDur, (ctx, k) => {
+        const r = 28 + Math.sin(k * Math.PI * 4) * 3;
+        const alpha = 0.95 - k * 0.25;
+        ctx.save();
+        ctx.translate(tx, ty);
+        ctx.strokeStyle = `rgba(255,216,77,${alpha})`;
+        ctx.lineWidth = 1.6;
+        for (let i = 0; i < 4; i++) {
+          const a = i * Math.PI / 2 + Math.PI / 4;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * (r - 6), Math.sin(a) * (r - 6));
+          ctx.lineTo(Math.cos(a) * (r + 4), Math.sin(a) * (r + 4));
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = `rgba(255,216,77,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+      setTimeout(() => {
+        audio.play('hit');
+        audio.play('crit');
+        this._spawnAimedArrow(fromX, fromY, tx, ty, flightDur);
+        for (let i = 0; i < 10; i++) {
+          this.fx.spawn({
+            x: fromX, y: fromY,
+            vx: (Math.random() - 0.5) * 40, vy: (Math.random() - 0.5) * 40,
+            gravity: 30, drag: 1.2,
+            size: 1.6 + Math.random(), color: '#ffd884',
+            life: 0.35, shrink: true, glow: 8,
+          });
+        }
+        setTimeout(() => {
+          if (target.dead) return;
+          this.fx.hitSpark(tx, ty, '#ffd884');
+          this.fx.shockwave(tx, ty, '#ffd884', 80, 0.5);
+          this.fx.shockwave(tx, ty, '#ffffff', 44, 0.35);
+          this.battleShake = Math.max(this.battleShake, 9);
+          this._applyDamage(this.actor, target, this.actor.atk * skill.power, 'phys', skill);
+        }, flightDur * 1000);
+      }, aimDur * 1000);
+      this._delay(totalDur + 0.20, () => this._checkEnd() || this._endActorTurn());
+    });
+  }
+
+  // Cleave — sword sweep across all enemies. Bespoke melee cinematic so it
+  // doesn't share the tier-2 projectile flow (which made it look identical
+  // to Overhead Smash and every other "magic projectile" cast).
+  _castCleave(skill) {
+    const targets = this.enemies.filter(e => !e.dead);
+    if (!targets.length) { this._endActorTurn(); return; }
+    this.actor.mp -= skill.cost;
+    this._addLog(`${this.actor.name} unleashes ${skill.name}!`);
+    const dmgBase = this.actor.atk;
+    // Caster lunge — short forward push so the sweep reads as a stepping
+    // strike, not a stationary cast.
+    this.attackAnim = { attacker: this.actor, t: 0, dur: 0.55, kind: 'sword' };
+    // Pre-swing wind audio.
+    audio.play('menu');
+    // 0.18s into the swing the blade arcs across the enemy row.
+    this._delay(0.18, () => {
+      this._drawCleaveArc(targets);
+      audio.play('crit');
+      // Each enemy takes its slash + damage as the arc sweeps over them,
+      // L-to-R based on screen X. Staggered ~0.05s apart for the sweep feel.
+      const sorted = [...targets].sort((a, b) => (a._screenX || 0) - (b._screenX || 0));
+      sorted.forEach((t, i) => {
+        this._delay(i * 0.05, () => {
+          if (t.dead) return;
+          this.fx.slashHit(t._screenX, t._screenY, -Math.PI / 5);
+          this.fx.shockwave(t._screenX, t._screenY, '#ffd884', 56, 0.38);
+          this.fx.shockwave(t._screenX, t._screenY, '#ffffff', 36, 0.30);
+          this.battleShake = Math.max(this.battleShake, 6);
+          this._applyDamage(this.actor, t, dmgBase * skill.power, skill.element || 'phys', skill);
+        });
+      });
+    });
+    this._delay(0.85, () => this._checkEnd() || this._endActorTurn());
+  }
+
+  // Wide white arc crescent crossing the enemy row — pure visual layer that
+  // reads as the sweep of the blade. Anchored at the row's centroid.
+  _drawCleaveArc(targets) {
+    if (!targets.length) return;
+    const xs = targets.map(t => t._screenX || 0);
+    const ys = targets.map(t => t._screenY || 0);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const cx = (minX + maxX) / 2;
+    // Anchor the arc just above the enemy centerline so the apex sits behind
+    // the middle enemy's head rather than arcing high overhead.
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2 - 18;
+    const span = Math.max(120, (maxX - minX) + 160);
+    // Arc grows L-to-R over 0.35s.
+    this.fx.shape(0.35, (ctx, k) => {
+      const reveal = Math.min(1, k * 1.4);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.globalAlpha = (1 - k * 0.7) * 0.95;
+      ctx.strokeStyle = '#ffffff';
+      ctx.shadowColor = '#ffd884';
+      ctx.shadowBlur = 14;
+      ctx.lineWidth = 6 * (1 - k * 0.4);
+      ctx.lineCap = 'round';
+      // Two stacked arcs for thickness, with a faint inner gold accent.
+      const arcR = span * 0.55;
+      // Higher arcCy pushes the circle's center further below the row so
+      // the visible top of the arc lands close to the enemy-head height
+      // (instead of arcing far overhead).
+      const arcCy = arcR * 0.85;
+      // Arc lives in the TOP of the circle (above the enemies), spanning
+      // from upper-left (1.18π) to upper-right (1.82π) — a ~115° "rainbow"
+      // shape that reads as a sword cresting over the row. Reveal sweeps
+      // the visible endA from left to right.
+      const startA = Math.PI * 1.18;
+      const endA = startA + Math.PI * 0.64 * reveal;
+      ctx.beginPath();
+      ctx.arc(0, arcCy, arcR, startA, endA);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffd884';
+      ctx.lineWidth = 2.2 * (1 - k * 0.4);
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(0, arcCy, arcR + 4, startA, endA);
+      ctx.stroke();
+      ctx.restore();
+    });
+    // Golden sparks raining down beneath the arc.
+    for (let i = 0; i < 22; i++) {
+      const x = minX - 30 + Math.random() * (span);
+      const y = cy + (Math.random() - 0.5) * 24;
+      this.fx.spawn({
+        x, y,
+        vx: (Math.random() - 0.5) * 50,
+        vy: 30 + Math.random() * 80,
+        gravity: 120, drag: 1.4,
+        size: 1.6 + Math.random() * 1.2,
+        color: ['#ffd884', '#ffffff', '#ffae3b'][Math.floor(Math.random() * 3)],
+        life: 0.45 + Math.random() * 0.25,
+        shrink: true, glow: 6,
+      });
+    }
+  }
+
+  // Party buff dispatch — applies `skill.buffStatus` to the chosen targets
+  // (self for 'one' / 'self', whole live party for 'all'). Bespoke visual
+  // per skill id where it matters; generic fallback for everything else.
+  _castPartyBuff(skill) {
+    const targets = skill.target === 'all'
+      ? this.party.filter(m => !m.dead)
+      : [this.actor];
+    if (!targets.length) { this._endActorTurn(); return; }
+    this.actor.mp -= skill.cost;
+    this._addLog(`${this.actor.name} uses ${skill.name}!`);
+    if (skill.id === 'smokescreen') {
+      this._fxSmokescreen(targets);
+    } else {
+      // Generic buff motes ring up around each ally
+      audio.play('confirm');
+      for (const t of targets) {
+        this.fx.healingMotes?.(t._screenX, t._screenY, 1.0);
+        this.fx.shockwave(t._screenX, t._screenY, '#a8d8ff', 60, 0.4);
+      }
+    }
+    // Status application lands at the cinematic's peak — ~0.45s after the
+    // smoke billows out so the visual reads as cause-then-effect.
+    this._delay(0.45, () => {
+      for (const t of targets) {
+        if (skill.buffStatus) {
+          this._applyStatus(t, skill.buffStatus.id, { duration: skill.buffStatus.duration });
+        }
+        // `healAmount` lets a buff skill also restore HP — e.g. Adamant Roar
+        // grants haste AND heals the party.
+        if (skill.healAmount && !t.dead) {
+          this._healMember(t, skill.healAmount);
+        }
+      }
+      this._delay(0.45, () => this._endActorTurn());
+    });
+  }
+
+  // Smokescreen — grey smoke billow at the caster + drifting wisps around
+  // each ally so it reads as cover descending on the whole party.
+  _fxSmokescreen(targets) {
+    audio.play('hit');
+    audio.play('confirm');
+    const cx = this.actor._screenX || 0, cy = this.actor._screenY || 0;
+    // Caster billow — broad grey cloud
+    for (let i = 0; i < 36; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 60 + Math.random() * 120;
+      this.fx.spawn({
+        x: cx, y: cy,
+        vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 25,
+        gravity: -8, drag: 0.5,
+        size: 4 + Math.random() * 3.5,
+        color: ['#9aa0a8', '#bcc0c8', '#dcdfe2', '#7a8088'][Math.floor(Math.random() * 4)],
+        life: 0.9 + Math.random() * 0.4, shrink: true, glow: 0,
+      });
+    }
+    // Ally swirls — a ring of smoke drifts up around each party member ~0.3s in
+    for (const t of targets) {
+      const tx = t._screenX || 0, ty = t._screenY || 0;
+      setTimeout(() => {
+        this.fx.shockwave(tx, ty, '#bcc0c8', 50, 0.45);
+        for (let i = 0; i < 18; i++) {
+          const ang = (i / 18) * Math.PI * 2;
+          this.fx.spawn({
+            x: tx + Math.cos(ang) * 20, y: ty + Math.sin(ang) * 12,
+            vx: -Math.sin(ang) * 32, vy: -40 + Math.cos(ang) * 8,
+            gravity: -6, drag: 0.45,
+            size: 3 + Math.random() * 2,
+            color: ['#9aa0a8', '#bcc0c8', '#dcdfe2'][Math.floor(Math.random() * 3)],
+            life: 0.85 + Math.random() * 0.3, shrink: true, glow: 0,
+          });
+        }
+      }, 300);
+    }
+  }
+
+  _spawnAimedArrow(fromX, fromY, toX, toY, dur) {
+    const dx = toX - fromX, dy = toY - fromY;
+    const ang = Math.atan2(dy, dx);
+    this.fx.shape(dur, (ctx, k) => {
+      const x = fromX + dx * k;
+      const y = fromY + dy * k - Math.sin(k * Math.PI) * 22;
+      if (k > 0.04 && Math.random() < 0.9) {
+        this.fx.spawn({
+          x, y,
+          vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14,
+          gravity: 12, drag: 1.4,
+          size: 1.6 + Math.random() * 1.4, color: '#ffd884',
+          life: 0.35 + Math.random() * 0.15, shrink: true, glow: 10,
+        });
+      }
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang);
+      ctx.shadowColor = '#ffd884'; ctx.shadowBlur = 18;
+      ctx.strokeStyle = '#8a5a18';
+      ctx.lineWidth = 3.2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-24, 0); ctx.lineTo(12, 0);
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(12, 0); ctx.lineTo(18, -4); ctx.lineTo(18, 4); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#dcdcdc';
+      ctx.beginPath();
+      ctx.moveTo(8, 0); ctx.lineTo(12, -3); ctx.lineTo(12, 3); ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffd884';
+      ctx.beginPath();
+      ctx.moveTo(-24, 0); ctx.lineTo(-32, -5); ctx.lineTo(-26, 0); ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-24, 0); ctx.lineTo(-32, 5); ctx.lineTo(-26, 0); ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+
+  _spawnArrow(fromX, fromY, toX, toY, dur) {
+    const dx = toX - fromX, dy = toY - fromY;
+    const ang = Math.atan2(dy, dx);
+    this.fx.shape(dur, (ctx, k) => {
+      const x = fromX + dx * k;
+      const y = fromY + dy * k - Math.sin(k * Math.PI) * 16;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang);
+      // Wooden shaft
+      ctx.strokeStyle = '#7a4a18';
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-18, 0); ctx.lineTo(8, 0);
+      ctx.stroke();
+      // Iron tip
+      ctx.fillStyle = '#dcdcdc';
+      ctx.strokeStyle = '#3a3a3a';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(8, 0); ctx.lineTo(13, -3); ctx.lineTo(13, 3); ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Fletching (red feathers)
+      ctx.fillStyle = '#b81818';
+      ctx.beginPath();
+      ctx.moveTo(-18, 0); ctx.lineTo(-25, -4); ctx.lineTo(-20, 0); ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-18, 0); ctx.lineTo(-25, 4); ctx.lineTo(-20, 0); ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    });
   }
 
   _applyDamage(attacker, defender, base, element, skill = null) {
@@ -5231,6 +5965,22 @@ export class Battle {
     let dmg = Math.max(1, base - effectiveDef * 0.5 * (1 - pierce));
     if (defender.defending) dmg *= 0.5;
     dmg *= elementMod;
+    // Apply `damageMult` statuses (Protect, Shell) based on element category.
+    // Phys hits only match Protect; non-phys non-nonelemental hits match Shell.
+    // Multiple matching statuses stack multiplicatively.
+    if (defender.statuses?.length) {
+      const isPhys = element === 'phys' || elementList.every(e => e === 'phys');
+      const isMagic = !isPhys && elementList.some(e => e && e !== 'phys' && e !== 'nonelemental');
+      for (const s of defender.statuses) {
+        const sd = STATUS_BY_ID[s.id];
+        if (sd?.kind !== 'damageMult') continue;
+        if (sd.match === 'all'
+            || (sd.match === 'phys' && isPhys)
+            || (sd.match === 'magic' && isMagic)) {
+          dmg *= sd.factor;
+        }
+      }
+    }
     const crit = Math.random() < 0.08;
     if (crit) dmg *= 1.75;
     dmg = Math.max(1, Math.floor(dmg));
@@ -5247,6 +5997,14 @@ export class Battle {
     // Skill-applied status (e.g., Fira → Burn chance)
     if (skill?.status && defender.hp > 0 && Math.random() < (skill.status.chance ?? 1)) {
       this._applyStatus(defender, skill.status.id, { duration: skill.status.duration });
+    }
+    // Skill-applied EXTRA statuses (Death Mark stacks crackedArmor + poison + slow)
+    if (skill?.extraStatuses && defender.hp > 0) {
+      for (const s of skill.extraStatuses) {
+        if (Math.random() < (s.chance ?? 1)) {
+          this._applyStatus(defender, s.id, { duration: s.duration });
+        }
+      }
     }
     // Attacker-applied status (enemies with attackStatus, future status-gem weapons)
     if (attacker?.attackStatus && defender.hp > 0 && Math.random() < (attacker.attackStatus.chance ?? 1)) {
@@ -5405,11 +6163,66 @@ export class Battle {
 
   // --- Render ----------------------------------------------------------------
 
+  // Death cinematic FX — burst of dark motes + soul wisps trailing upward,
+  // ground impact shockwave, low thud sting. Tints to the enemy's body color
+  // so each species' death reads as their own (wolves dark brown, slimes
+  // green, wraiths violet).
+  _spawnEnemyDeathFx(e) {
+    const x = e._screenX || 0, y = e._screenY || 0;
+    const body = e.palette?.body || e.color || '#8a6a3a';
+    const eyeGlow = e.palette?.eyeGlow || e.palette?.eye || '#ffffff';
+    audio.play('hurt');
+    // Ground impact ring — they fall, kicking up dust.
+    this.fx.shockwave(x, y + 20, body, 90, 0.55);
+    this.fx.shockwave(x, y + 20, '#1a0d04', 60, 0.40);
+    // Dark dust burst horizontally.
+    for (let i = 0; i < 18; i++) {
+      const ang = Math.PI * (0.85 + Math.random() * 0.3); // mostly outward
+      const sp = 70 + Math.random() * 110;
+      this.fx.spawn({
+        x, y: y + 10,
+        vx: Math.cos(ang) * sp * (Math.random() < 0.5 ? -1 : 1),
+        vy: -Math.abs(Math.sin(ang)) * sp * 0.4 - 20,
+        gravity: 260, drag: 0.85,
+        size: 1.6 + Math.random() * 1.6,
+        color: ['#1a0d04', '#3a2818', body, '#5a4030'][Math.floor(Math.random() * 4)],
+        life: 0.55 + Math.random() * 0.35, shrink: true, glow: 4,
+      });
+    }
+    // Soul wisps drifting up — the spark leaving the body. Tinted to the
+    // enemy's eye glow so a wraith's wisps look different from a wolf's.
+    for (let i = 0; i < 9; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+      const sp = 30 + Math.random() * 50;
+      this.fx.spawn({
+        x: x + (Math.random() - 0.5) * 18,
+        y: y - 4,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp,
+        gravity: -15, drag: 0.55,
+        size: 1.4 + Math.random() * 1.2,
+        color: eyeGlow,
+        life: 0.9 + Math.random() * 0.4, shrink: true, glow: 10,
+      });
+    }
+  }
+
   update(dt) {
     this.t += dt;
     if (this.battleShake > 0) this.battleShake = Math.max(0, this.battleShake - dt * 18);
     for (const e of this.enemies) {
-      e.t += dt;
+      if (e.dead) {
+        // First frame after death — kick off the death cinematic. Single
+        // hook so every damage source benefits (skills, summons, DoT).
+        if (e._deathStarted == null) {
+          e._deathStarted = true;
+          e.deathT = 0;
+          this._spawnEnemyDeathFx(e);
+        }
+        e.deathT += dt;
+      } else {
+        e.t += dt;
+      }
       if (e.hitFlash > 0) e.hitFlash -= dt;
       if (e.shake > 0) e.shake -= dt;
     }
@@ -5482,11 +6295,36 @@ export class Battle {
         ctx.save();
         ctx.translate(baseX + shake, baseY);
         if (row.scale !== 1) ctx.scale(row.scale, row.scale);
-        if (e.dead) ctx.globalAlpha = 0.25;
+        if (e.dead) {
+          // FF7-style dissolve — they rise slightly while shrinking uniformly
+          // and fading out, paired with the soul-wisp particle burst from
+          // _spawnEnemyDeathFx so it reads as the spirit lifting off.
+          // No squash (looked like a paper doll) and no flip (left tails in
+          // the air). 0.7s total then the sprite is fully gone.
+          const dur = 0.7;
+          const k = Math.min(1, (e.deathT || 0) / dur);
+          const ek = k * k;
+          ctx.translate(0, -ek * 28);
+          const s = 1 - ek * 0.55;
+          ctx.scale(s, s);
+          ctx.globalAlpha = Math.max(0, 1 - k * 1.05);
+        }
         if (e.hitFlash > 0) { ctx.shadowColor = '#fff'; ctx.shadowBlur = 20; }
         e.template.draw(ctx, e);
         ctx.restore();
-        this._drawEnemyNameplate(ctx, e, baseX, baseY, row.scale);
+        // Fade the nameplate with the sprite so a "0/175 HP" bar isn't
+        // left floating in midair after the body dissolves.
+        if (e.dead) {
+          const k = Math.min(1, (e.deathT || 0) / 0.7);
+          const a = Math.max(0, 1 - k * 1.05);
+          if (a <= 0.01) continue;
+          ctx.save();
+          ctx.globalAlpha = a;
+          this._drawEnemyNameplate(ctx, e, baseX, baseY, row.scale);
+          ctx.restore();
+        } else {
+          this._drawEnemyNameplate(ctx, e, baseX, baseY, row.scale);
+        }
       }
     }
 
@@ -5504,8 +6342,24 @@ export class Battle {
       ctx.save();
       ctx.translate(pX + shake, pY);
       if (this.attackAnim?.attacker === p) {
-        // Party is at the bottom; lunge upward toward the enemy line.
-        ctx.translate(0, -60 * Math.sin(this.attackAnim.t / this.attackAnim.dur * Math.PI));
+        if (this.attackAnim.kind === 'bow') {
+          // Bow shot: hold stance, small recoil right at release.
+          const k = this.attackAnim.t / this.attackAnim.dur;
+          const drawFrac = (this.attackAnim.drawDur || 0.22) / this.attackAnim.dur;
+          const recoilFrac = 0.12;
+          if (k < drawFrac) {
+            // Drawing — lean back slightly, tense.
+            const dk = k / drawFrac;
+            ctx.translate(0, 2 * dk);
+          } else if (k < drawFrac + recoilFrac) {
+            // Release recoil — quick lurch back and down.
+            const rk = (k - drawFrac) / recoilFrac;
+            ctx.translate(0, 4 * Math.sin(rk * Math.PI));
+          }
+        } else {
+          // Melee classes: lunge upward toward the enemy line.
+          ctx.translate(0, -60 * Math.sin(this.attackAnim.t / this.attackAnim.dur * Math.PI));
+        }
       }
       if (p.dead) ctx.globalAlpha = 0.3;
       if (p.hitFlash > 0) { ctx.shadowColor = '#fff'; ctx.shadowBlur = 20; }

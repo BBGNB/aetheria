@@ -32,14 +32,14 @@ export const COMBOS = [
   // ---- 2-gem WEAPON IDENTITY upgrades -----------------------------------
   { gems: ['vigorStone','mightCore'],   grants: ['cleave'],        name: 'Berserker (Cleave)' },
   { gems: ['mightCore', 'wardStone'],   grants: ['sunder'],        name: 'Bulwark Strike (Sunder)' },
-  { gems: ['mightCore', 'emberCore'],   grants: ['firaga'],        name: 'Flameforge (Firaga)' },
+  { gems: ['mightCore', 'emberCore'],   grants: ['firaga'],        name: 'Flameforge' },
   { gems: ['mightCore', 'stormPearl'],  grants: ['thundara'],      name: 'Stormblade (Thundara)' },
 
   // ---- 3-gem TRIO COMBOS ------------------------------------------------
   { gems: ['emberCore','tideShard','deepTide'],     grants: ['tideTriad'],      name: 'Tide Triad' },
   { gems: ['emberCore','deepTide','acidvial'],      grants: ['causticCataract'],name: 'Caustic Cataract' },
   { gems: ['emberCore','tideShard','stormPearl'],   grants: ['prismaBurst'],    name: 'Prisma Burst' },
-  { gems: ['emberCore','tideShard','lifebloom'],    grants: ['curaga'],         name: 'Eden Spring (Curaga)' },
+  { gems: ['emberCore','tideShard','lifebloom'],    grants: ['curaga'],         name: 'Eden Spring' },
   { gems: ['emberCore','stormPearl','mightCore'],   grants: ['sunder','firaga'], name: 'Wrath of Forges' },
   { gems: ['tideShard','stormPearl','wardStone'],   grants: ['stalwartAura','blizzaga'], name: 'Frozen Bastion' },
   { gems: ['lifebloom','wardStone','vigorStone'],   grants: ['phoenixShroud'],  name: 'Phoenix Shroud' },
@@ -176,7 +176,7 @@ export const COMBOS = [
   { gems: ['voidshard','dawnstone','lifebloom'],    grants: ['judgement'],   name: 'Judgement' },
   { gems: ['bloomroot','acidvial','venomFang'],     grants: ['plagueGrove'], name: 'Plague Grove' },
   // The four-element knot. The "ultimate" reachable via gem combos.
-  { gems: ['emberCore','deepTide','stormPearl','voidshard'], grants: ['ultima'], name: 'Ultima' },
+  { gems: ['emberCore','deepTide','stormPearl','voidshard'], grants: ['ultima'], name: 'Aether-Knell' },
 
   // ---- 3-gem ELEMENT TRIO FUSIONS (catalog sweep — every elemental triple) ----
   // Every C(8,3) elemental combination grants a bespoke tier-4 trio spell.

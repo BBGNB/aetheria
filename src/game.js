@@ -58,6 +58,7 @@ export class Game {
     if (!data || !applySave(this, data)) return false;
     // Don't carry a half-fought boss attempt across reloads.
     this._pendingBossWinFlag = null;
+    this._pendingDefeatedFlag = null;
     this.scene = new Overworld(this);
     this.running = true;
     this.ui.showHud();
@@ -69,6 +70,68 @@ export class Game {
   save() { return saveWrite(this); }
   eraseSave() { saveClear(); }
   hasSave() { return hasSave(); }
+
+  // Debug warp — drops a Lv7 Ranger Hero + Lv7 Lyra into the Echoing Hollow
+  // with the full chapter-1 flag chain already set (Cal rescue, Pack Alpha,
+  // Lyra recruited). Player spawns mid-cave on a walkable cave-floor tile;
+  // walk east to (21,8) cave mouth to trigger the Hollow Warden boss event.
+  // Use via `?warp=warden` URL param. Safe to remove later.
+  warpToWardenBoss() {
+    this.newGame('ranger');
+    // Level the player up to 7 — apply the same per-level bookkeeping the
+    // normal XP flow does (xpToNext + SP + rebuildStats + full restore).
+    for (let i = this.player.level; i < 7; i++) {
+      this.player.level++;
+      this.player.xpToNext = xpForLevel(this.player.level);
+      this.player.sp = (this.player.sp || 0) + SP_PER_LEVEL;
+    }
+    rebuildStats(this.player);
+    this.player.hp = this.player.maxHp;
+    this.player.mp = this.player.maxMp;
+    // Chapter-1 corridor: mark every scripted fight defeated so nothing
+    // ambushes the player on the way back through.
+    for (const id of ['meadow:wolfling1','meadow:bramble1','meadow:pair1',
+                      'meadow:otter1','meadow:wisp1','meadow:rescueCal',
+                      'meadow:packAlpha']) {
+      this.defeatedEnemies.add(id);
+    }
+    for (const f of ['town:rested','bren:warned','meadow:packAlpha','cal:rescued']) {
+      this.flags.add(f);
+    }
+    // Recruit Lyra — she joins at the player's level via the standard path.
+    this.recruit('white', 'Lyra', 'recruit:lyra');
+    // Give a starting kit that fits a Lv7 mid-dungeon party.
+    this.gold = 250;
+    this.inventory.consumables = { potion: 6, hipotion: 2, ether: 2 };
+    // Drop them at (12,5) in the cave — open floor, walkable, ~half-way
+    // between Lyra's deep recruit spot and the cave-mouth boss trigger.
+    this.transitionTo('cave', 12, 5);
+    this.running = true;
+    this.ui.showHud();
+    this.ui.hideStart();
+    this.ui.hideGameOver();
+  }
+
+  // Debug warp — drops a fresh Fighter into Brookside Grove south of the Cal
+  // rescue, on the wide row-10 path with no nearby colliders so movement isn't
+  // catching on bush/tree AABBs at spawn. Walk a few tiles north and the row-3
+  // trigger fires. Use via `?warp=cal` URL param. Safe to remove later.
+  warpToCalRescue() {
+    this.newGame('fighter');
+    for (const id of ['meadow:wolfling1','meadow:bramble1','meadow:pair1',
+                      'meadow:otter1','meadow:wisp1']) {
+      this.defeatedEnemies.add(id);
+    }
+    for (const f of ['town:rested','bren:warned']) this.flags.add(f);
+    // transitionTo handles the map swap + scene rebuild + position-from-tile
+    // correctly (clears x/y to null first so the Overworld constructor uses
+    // the spawnOverride tile).
+    this.transitionTo('meadowBrook', 10, 10);
+    this.running = true;
+    this.ui.showHud();
+    this.ui.hideStart();
+    this.ui.hideGameOver();
+  }
 
   transitionTo(mapId, tx, ty) {
     this.currentMapId = mapId;
@@ -142,15 +205,17 @@ export class Game {
       });
       return;
     }
+    const brenWarned = this.flags.has('bren:warned');
     let lines;
     if (wardenDown && lyraJoined) {
       lines = [
-        'You walked the Hollow and came back with her. I did not believe I would see either of you again.',
-        'Lyra — rest. The town is yours. We will speak again, when you are ready.',
-        '(To you) The Hollow was the smallest of the seven wounds. The next is the Verdant Reach — the forest north of the meadow.',
-        'The path is open now. Walk it slowly. There was a man named Sable, once of the Order, who chose exile rather than fight. If he still lives, he sits somewhere in those trees.',
-        'Find him. Hear what he has to say. Then go deeper, to the heart of the Reach, where the next knot is bleeding.',
-        'Tonight, drink and breathe. Tomorrow, the road continues north.',
+        '(He looks at you a long moment before he speaks. His eyes settle on Lyra and he closes them.)',
+        '"You brought her out. I have not slept properly in two months. I think tonight I will."',
+        'Lyra — there is a room above the inn. Edran has kept it for you. Use it. The town will wait until morning to ask you anything.',
+        '(He turns back to you. His voice drops.) "There is more to say. There is always more. But not tonight."',
+        '"Tomorrow — walk north. The meadow path opens past the Reach now that the Hollow is sealed. There is a man in those woods. Sable. He was one of the seven, before. He left us, and we let him."',
+        '"Find him. He will not be glad to see anyone. But he knows where the next wound bleeds, and he owes us — owes Lyra — a debt he has not been able to forget."',
+        '"Go drink. Eat. Breathe. The road north can wait until you can taste your food again."',
       ];
       // Closes the chapter 1 main questline.
       if (!this.flags.has('vorrin:postWarden')) {
@@ -159,32 +224,63 @@ export class Game {
       }
     } else if (lyraJoined) {
       lines = [
-        'You found her. Then the Hollow is not yet finished with you — its Warden still walks the cave mouth.',
-        'Go. Finish what you began. I will keep the hearth lit.',
+        '(His hand tightens on his staff as Lyra steps into the room. He does not speak for a long moment.)',
+        '"You\'re thin. You\'re alive. We\'ll take both."',
+        '(To you) "The Hollow has not let you go yet — its Warden still walks the cave mouth. Whatever you brought out, it wants back."',
+        '"Finish it. Come home together. I will keep the hearth lit."',
       ];
     } else if (alphaDown) {
       lines = [
-        'The Pack Alpha has fallen — I can feel the road breathe again.',
-        'The way into the Hollow is open. Find Lyra. Bring her home if you can.',
+        '"You broke the Alpha. The road is quieter — I can feel it. I have not been able to feel the road for weeks."',
+        '"Go. The cave mouth is open. If Lyra is still alive in there, she is at the deepest place. She will not come out on her own."',
       ];
-    } else {
-      // Initial: full backstory + the Pack Alpha quest. Mark that he's spoken
-      // so the questline can advance past "talk to Vorrin".
+    } else if (this.flags.has('town:rested') && !brenWarned) {
+      // Morning after — the player rested as Vorrin asked. He's been up since
+      // before dawn. Bren stumbled in at first light; Vorrin sends the
+      // player to find him at the west gate. This is the bridge between
+      // the welcome and the proper quest pitch.
       if (!this.flags.has('vorrin:spoken')) {
         this.flags.add('vorrin:spoken');
         this.save();
       }
       lines = [
-        'You carry the stillness of someone who has felt the world crack.',
-        'Long ago, seven mages — the Aetherial Order — kept the leylines in tune. They sang the world steady.',
-        'One of them, Vael, reached too far. He tried to wield the song. It tore.',
-        'What walked back from that tear was no longer Vael. The people now call it The Sundered.',
-        'The Order tried to mend the rifts. Six of them fell.',
-        'Only Lyra, the youngest, was left to try. She walked into the Hollow weeks ago, seeking the source. She has not come back.',
-        'But understand this: the Hollow is only one wound. There are others — older, deeper — where the bleed is far worse.',
-        'Find Lyra first, if she lives. With her at your side, there is work to do, you and I.',
-        'The road to the Hollow is no longer safe. A great wolf — the Pack Alpha — holds the cave mouth.',
-        'Cut your teeth on the meadow\'s beasts. Then break the Alpha. Only then can you reach her.',
+        '(He has not slept. There is a fresh ink-mark on his thumb and a cup of something gone cold beside him. He looks up before you speak.)',
+        '"Good. You rested. I asked for that for a reason."',
+        '"At first light a boy named Bren staggered through the west gate. Wolf-bit, mostly through. He is down at the gatepost — Edran is keeping him still. He has not enough breath to come this far."',
+        '"Whatever he is trying to say, he means to say it to someone. Walk down. Hear him out. Then come back to me — I will know what to ask of you when you have heard what he has to tell."',
+        '(He returns to his book, but the page does not turn.)',
+      ];
+    } else if (brenWarned) {
+      // Player has met Bren — Vorrin's first proper conversation. No lore
+      // dump (the intro covered it). All personal, all immediate stakes.
+      if (!this.flags.has('vorrin:spoken')) {
+        this.flags.add('vorrin:spoken');
+        this.save();
+      }
+      lines = [
+        '(He sets down his cup before you finish speaking. The hall goes still around him.)',
+        '"Bren. I knew his father. Damn it. Damn ALL of it."',
+        '(A long silence. When he speaks again his voice is level — the kind of level that costs something.)',
+        '"Listen. The pack came south because something further north drove them. The Sundered is reaching. Each year a little further. This year is the worst."',
+        '"There is a girl in the Hollow. Lyra. Youngest of the Order — the only one of them I have left. I taught her to read the leylines when she was a child. She walked into the Hollow two months ago. She has not come out."',
+        '"A wolf holds the cave mouth — they are calling it the Pack Alpha. It is not a wolf, not really. It is what the Sundered turns wolves into when it bleeds long enough through the same wood."',
+        '"Break the Alpha. Find Lyra. Bring her home, or come tell me where she fell. Either way, I need to know."',
+        '(He puts a heavy hand on your shoulder.) "I am sorry to ask. I have no one else to ask."',
+      ];
+    } else {
+      // Pre-Bren first visit. Personal welcome, no quest yet — just stage-set
+      // so the player learns who Vorrin is before Bren collapses at the gate.
+      if (!this.flags.has('vorrin:spoken')) {
+        this.flags.add('vorrin:spoken');
+        this.save();
+      }
+      lines = [
+        '(He looks up from a worn leather book. His eyes are tired but they read you in a single pass.)',
+        '"You came east. Few do, anymore. Most of the roads east end somewhere they did not used to."',
+        '"I am Vorrin. I keep what is left of this place running, when I can. Hearthstone sits on an Aetheric well — it is why the song is still audible here, when most places have gone quiet."',
+        '"Rest a night. The inn is honest. Mira undersells her wares. The shrine in the square is older than the kingdom — older than my grandmother\'s grandmother. Touch it if you mean to swear anything."',
+        '(He returns to his book. As you turn to go, without looking up:)',
+        '"If you mean to walk west — wait until tomorrow. The road past the meadow has gone strange this week. I will know more by morning."',
       ];
     }
     this.ui.showDialog(npc.name, lines, null, null);
@@ -244,6 +340,48 @@ export class Game {
         this.save();
       }
     });
+  }
+
+  // Bren — the dying scout. One-shot dialog: he gasps out his warning, then
+  // his last words. Sets `bren:warned` so Vorrin's dialog and Mira's gift
+  // unlock, and so Bren himself stops appearing.
+  _openBrenDialog(npc) {
+    const warned = this.flags.has('bren:warned');
+    if (warned) {
+      // Stays present until cave:warden so the player can re-read his last
+      // words, but most NPCs will use hideIfFlag once a chapter beat fires.
+      this.ui.showDialog(npc.name, [
+        'Bren\'s body lies still. His tunic is dark where it shouldn\'t be.',
+        '"…Cal," he\'d whispered, near the end. "Find Cal."',
+      ], null, null);
+      return;
+    }
+    this.ui.showDialog(npc.name, [
+      '(He looks up, his eyes glassy.) "You\'re — you\'re someone who can walk. Good. Good."',
+      '"The pack moved south. They were never this far before. Three days, maybe four — they came out of the Reach like the woods spat them."',
+      '"My partner Cal — we got split. He\'s wounded. He\'s somewhere in the meadow grove, pinned by them. If anyone is still going west…"',
+      '"Tell Elder Vorrin. Tell him the pack is hunting south. Tell him I tried."',
+      '(He grips your wrist. His hand is cold.) "Find Cal."',
+      '(His grip slackens.)',
+    ], ['I will'], () => {
+      this.flags.add('bren:warned');
+      this.ui.toast('Quest: warn Vorrin, then find Cal in the meadow.');
+      this.save();
+    });
+  }
+
+  // Cal — post-rescue. Says goodbye on the way back to Hearthstone. Stays as
+  // a static NPC until chapter 1 ends.
+  _openCalDialog(npc) {
+    const rescued = this.flags.has('cal:rescued');
+    if (!rescued) {
+      this.ui.showDialog(npc.name, ['(He doesn\'t appear to be here yet.)'], null, null);
+      return;
+    }
+    this.ui.showDialog(npc.name, [
+      'Cal: "I owe you my life. I\'ll limp back to Hearthstone — Edran keeps a back room."',
+      'Cal: "Whatever you find past the cave mouth — be careful. The pack was only the first wave. Something is hunting THEM, too."',
+    ], null, null);
   }
 
   // Sable the hermit — first visit unfolds his exile and points the way north.
@@ -370,6 +508,21 @@ export class Game {
       ], ['Browse', 'Leave'], idx => { if (idx === 0) shop(); });
       return;
     }
+    // Bren's warning unlocks a free potion gift before the quest pitch — Mira
+    // overheard what happened and wants the player to take SOMETHING with them.
+    if (this.flags.has('bren:warned') && !this.flags.has('mira:potion')) {
+      this.ui.showDialog(npc.name, [
+        '(She catches your sleeve before you can leave.) "I heard about the boy at the gate. Bren. Don\'t go west empty-handed."',
+        '"Take this. On me. Cal\'s out there too, and you\'ll need every drop."',
+      ], ['Take it'], () => {
+        this.inventory.consumables.potion = (this.inventory.consumables.potion || 0) + 1;
+        this.flags.add('mira:potion');
+        audio.play('confirm');
+        this.ui.toast('Received Potion (from Mira)');
+        this.save();
+      });
+      return;
+    }
     // First visit — offer the quest.
     this.ui.showDialog(npc.name, [
       'Welcome, traveler! Mira here.',
@@ -415,8 +568,12 @@ export class Game {
     const r = s.item;
     if (!r) return;
     if (r.kind === 'lore') {
-      // Pure narrative pickup — the dialog already showed the text.
-      this.ui.toast('Journal page recovered');
+      // Pure narrative pickup — the dialog already showed the text. Shrine-
+      // style lore beats can opt out of the journal-page toast via `toast: false`
+      // and supply a custom audio sting via `audio: 'chime'` to replace the
+      // default levelup chord.
+      if (r.toast !== false) this.ui.toast(r.toast || 'Journal page recovered');
+      if (r.audio) { audio.play(r.audio); return; }
     } else if (r.kind === 'gold') {
       this.gold += r.amount;
       this.ui.toast(`Found ${r.amount} gold!`);
@@ -448,9 +605,21 @@ export class Game {
       if (npc.id === 'elder') return this._openElderDialog(npc);
       if (npc.id === 'hermit:sable') return this._openSableDialog(npc);
       if (npc.id === 'tender:caretaker') return this._openCaretakerDialog(npc);
+      if (npc.id === 'bren:dying') return this._openBrenDialog(npc);
+      if (npc.id === 'cal:scout') return this._openCalDialog(npc);
       this.ui.showDialog(npc.name, npc.lines, null, null);
     } else if (npc.kind === 'inn') {
-      this.ui.showDialog(npc.name, npc.lines, ['Rest (' + npc.cost + 'g)', 'Leave'], idx => {
+      // First rest is on Vorrin's tab — Edran's dialog acknowledges it. After
+      // the first night the standard 10g-bed pitch returns.
+      const firstRest = !this.flags.has('town:rested');
+      const lines = firstRest
+        ? [
+            '(He looks up from a kettle, eyes the worn road off your boots.) "You came in with Vorrin\'s blessing, didn\'t you?"',
+            '"He sent word — your bed tonight\'s on him. He pays his debts before he names them. Rest if you mean to."',
+          ]
+        : npc.lines;
+      const optLabel = firstRest ? 'Rest (on Vorrin)' : 'Rest (' + npc.cost + 'g)';
+      this.ui.showDialog(npc.name, lines, [optLabel, 'Leave'], idx => {
         if (idx === 0) this._restAtInn(npc.cost);
       });
     } else if (npc.kind === 'shop') {
@@ -526,6 +695,12 @@ export class Game {
   }
 
   _restAtInn(cost) {
+    // First rest of the game is on Vorrin's tab — fits his "rest a night, the
+    // inn is honest" pitch and keeps the rest gate from punishing a fresh
+    // player who hasn't earned 10g yet. Also flagged so the west gate's
+    // auto-rest cutscene doesn't fire after the player has rested manually.
+    const firstRest = !this.flags.has('town:rested');
+    if (firstRest) cost = 0;
     if (this.gold < cost) {
       this.ui.toast('Not enough gold.');
       audio.play('hurt');
@@ -534,8 +709,12 @@ export class Game {
     this.gold -= cost;
     for (const m of this.party) { m.hp = m.maxHp; m.mp = m.maxMp; }
     audio.play('heal');
-    this.ui.toast('Rested. Party fully restored.');
+    this.flags.add('town:rested');
+    this.ui.toast(firstRest ? 'You rest. Party fully restored.' : 'Rested. Party fully restored.');
     this.save();
+    // First rest flips Bren's `requires: 'town:rested'` gate — refresh the
+    // overworld so he appears at the gatepost without forcing a map reload.
+    if (firstRest) this.scene?._refreshNpcs?.();
   }
 
   buyFromShop(entry) {
@@ -644,8 +823,13 @@ export class Game {
     }
   }
 
-  enterBattle(enemyIds, key) {
-    const b = new Battle(this, enemyIds, key);
+  enterBattle(enemyIds, key, opts = {}) {
+    // `opts.defeatFlag` — set on victory; powers the scripted-overworld-enemy
+    // pipeline (mirrors _pendingBossWinFlag but writes to defeatedEnemies).
+    // `opts.guest` — string id for a transient 4th party member (e.g. 'cal')
+    // that joins for this battle only and is NOT added to game.party.
+    if (opts.defeatFlag) this._pendingDefeatedFlag = opts.defeatFlag;
+    const b = new Battle(this, enemyIds, key, { guest: opts.guest || null });
     this.scene = b;
     b.enter();
   }
@@ -675,16 +859,32 @@ export class Game {
         this.flags.add(this._pendingBossWinFlag);
         this._pendingBossWinFlag = null;
       }
+      if (this._pendingDefeatedFlag) {
+        this.defeatedEnemies.add(this._pendingDefeatedFlag);
+        // Cal's rescue fight pays out: full party heal + grant 1 free level.
+        if (this._pendingDefeatedFlag === 'meadow:rescueCal') {
+          this.flags.add('cal:rescued');
+          for (const m of this.party) {
+            m.hp = m.maxHp;
+            m.mp = m.maxMp;
+          }
+          this._grantFreeLevel();
+          this.ui.toast('Cal heals the party and shares his XP!');
+        }
+        this._pendingDefeatedFlag = null;
+      }
       this.awardGemXp(Math.max(2, Math.floor(xpGained * 0.35)));
       this._gainXp(xpGained);
     } else if (result?.fled) {
       // Fled — clear any pending boss-win flag so a later random-encounter
       // win doesn't retroactively credit the unfought boss.
       this._pendingBossWinFlag = null;
+      this._pendingDefeatedFlag = null;
     } else {
       // Loss — same hazard. Clear the pending flag before the GameOver
       // overlay so a future load+win doesn't credit the failed attempt.
       this._pendingBossWinFlag = null;
+      this._pendingDefeatedFlag = null;
       this.running = false;
       audio.stopMusic();
       audio.stopAmbient();
@@ -695,6 +895,26 @@ export class Game {
     }
     this.scene = new Overworld(this);
     this.save();
+  }
+
+  // Story-beat free level — used by the Cal rescue scene. Every living party
+  // member gains exactly one level regardless of current XP.
+  _grantFreeLevel() {
+    const notices = [];
+    for (const m of this.party) {
+      if (m.hp <= 0) continue;
+      m.xp = 0;
+      m.level++;
+      m.xpToNext = xpForLevel(m.level);
+      m.sp = (m.sp || 0) + SP_PER_LEVEL;
+      rebuildStats(m);
+      m.hp = m.maxHp; m.mp = m.maxMp;
+      notices.push(`${m.name} → Lv ${m.level}`);
+    }
+    if (notices.length) {
+      audio.play('levelup');
+      this.ui.toast(notices.join(' · '));
+    }
   }
 
   // Each living party member gains the same XP (FF1-style — generous; KO'd get nothing).
